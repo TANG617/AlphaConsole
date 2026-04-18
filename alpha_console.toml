@@ -1,0 +1,31 @@
+[runtime]
+data_dir = "var"
+
+[printer]
+model = "XPrinter XP-80T"
+host = "10.0.4.192"
+port = 9100
+effective_width_px = 576
+timeout_seconds = 10
+dpi = 203
+print_width_mm = 72
+font_path = "/System/Library/Fonts/Hiragino Sans GB.ttc"
+mono_font_path = "/System/Library/Fonts/Menlo.ttc"
+
+[theme]
+name = "retro-terminal"
+page_margin_px = 16
+section_gap_px = 12
+panel_padding_px = 12
+preview_width_chars = 40
+header_font_size = 16
+title_font_size = 28
+subtitle_font_size = 20
+emblem_font_size = 18
+label_font_size = 16
+meta_font_size = 18
+meta_line_height = 24
+body_font_size = 30
+body_line_height = 36
+footer_font_size = 18
+footer_line_height = 24
