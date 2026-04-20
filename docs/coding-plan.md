@@ -113,6 +113,62 @@ tests/
 7. 即时触发会生成独立一期
 8. 同一个 App 在一次 Issue 中只发布一个 Block
 
+---
+
+### Phase 4：Receipt layout constraints
+创建或修改以下文件：
+
+```text
+src/alphaconsole/rendering/
+  __init__.py
+  profile.py
+  width.py
+  layout.py
+  header_renderer.py
+  scene_block_renderer.py
+  issue_text_renderer.py
+
+tests/
+  test_width.py
+  test_scene_block_renderer.py
+  test_issue_text_renderer.py
+```
+
+Phase 4 目标
+1. 引入 `RenderProfile`
+2. 支持固定宽度下的 receipt-style 纯文本渲染
+3. 支持基础中英文混排显示宽度计算
+4. 让 `IssueHeader`、`SceneBlock`、`Issue` 的输出稳定可重复
+5. 不改动 domain 层产品语义
+
+Phase 4 要求
+- 提供至少两个 profile：
+  - `RECEIPT_32`
+  - `RECEIPT_42`
+- 使用字符显示宽度做自动换行
+- 不做 truncation
+- 不做 pagination
+- 不做 printer adapter
+- 不做 device-specific printer mapping
+
+Phase 4 测试要求
+1. `display_width()` 对 ASCII 宽度稳定
+2. `display_width()` 对中文宽度基本正确
+3. 中英混排宽度计算可用
+4. `wrap_text()` 输出行宽不超过目标宽度
+5. `SceneBlock` 的 note-only / checklist-only / mixed 渲染稳定
+6. 长 note 自动换行
+7. 长 checklist item 自动换行并保持缩进
+8. `Issue` 在 32 / 42 列 profile 下输出稳定
+
+Phase 4 Stop 条件
+1. 文档已同步到位
+2. `RenderProfile` 已存在且有 32 / 42 两个预设
+3. `IssueHeader` / `SceneBlock` / `Issue` 可在固定宽度下稳定渲染
+4. 基础中英混排显示宽度计算可用
+5. 测试通过
+6. 没有越界实现 printer / scheduler / db / ui / llm
+
 ## 3. 推荐目录职责
 ### `domain/enums.py`
 定义最小枚举，不要放业务逻辑。
