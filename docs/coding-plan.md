@@ -169,6 +169,65 @@ Phase 4 Stop 条件
 5. 测试通过
 6. 没有越界实现 printer / scheduler / db / ui / llm
 
+---
+
+### Phase 5：Print pipeline boundary
+创建以下文件：
+
+```text
+docs/
+  print-pipeline.md
+
+src/alphaconsole/printing/
+  __init__.py
+  artifact.py
+  adapter.py
+  memory_adapter.py
+  file_adapter.py
+  service.py
+
+tests/
+  test_print_service.py
+  test_memory_adapter.py
+  test_file_adapter.py
+```
+
+Phase 5 目标
+1. 在 rendering 与未来真实打印机之间建立清晰的 dry-run print boundary
+2. 引入 printer-agnostic 的 adapter 抽象
+3. 保持 domain 层完全不变
+4. 保持 open-loop 产品语义不变
+5. 不进入 ESC/POS / 硬件 / 队列 / 持久化
+
+Phase 5 要求
+- 定义：
+  - `RenderedReceipt`
+  - `PrinterAdapter`
+  - `PrintService`
+- 提供 dry-run adapters：
+  - `MemoryPrinterAdapter`
+  - `FilePrinterAdapter`
+- `PrintService` 使用现有 `render_issue()` 生成 receipt
+- 当前阶段只做 UTF-8 文本 delivery
+- 不实现重试、恢复、补打、历史查询
+
+Phase 5 测试要求
+1. `PrintService` 能从 `Issue` 生成 `RenderedReceipt`
+2. `print_issue()` 会把同一个 receipt 交给 adapter
+3. 不同 profile 下 `profile_name` 与文本输出会变化
+4. adapter 异常直接 bubble up
+5. `MemoryPrinterAdapter` 多次 deliver 顺序稳定
+6. `FilePrinterAdapter` 会写出稳定命名的 `.txt` 文件
+7. 同名文件再次 deliver 时按覆盖处理
+
+Phase 5 Stop 条件
+1. 文档已同步
+2. `RenderedReceipt` / `PrinterAdapter` / `PrintService` 已存在
+3. `MemoryPrinterAdapter` 与 `FilePrinterAdapter` 可用
+4. `PrintService` 能把 `Issue` 通过现有 `render_issue()` 输出为 receipt，并交给 adapter
+5. 全量测试通过
+6. 没有越界进入 ESC/POS / 硬件 / 队列 / 持久化 / UI / LLM
+
 ## 3. 推荐目录职责
 ### `domain/enums.py`
 定义最小枚举，不要放业务逻辑。
