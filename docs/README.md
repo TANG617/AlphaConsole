@@ -62,11 +62,11 @@
 
 ## 当前阶段说明
 当前阶段已进入 **print pipeline boundary（dry-run）**。  
-这一步的目标是在现有 width-aware rendering 之上建立清晰的打印边界，而不是进入真实 printer adapter。
+这一步的目标是在现有 width-aware rendering 之上建立清晰的打印边界，而不是进入真实 printer adapter / ESC/POS / 真实打印机硬件接入。
 
 ## 明确不做
 当前阶段明确不做：
-- Printer adapter
+- 真实 printer adapter
 - ESC/POS
 - 真实打印机硬件接入
 - Scheduler
