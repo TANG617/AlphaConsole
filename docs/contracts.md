@@ -5,7 +5,7 @@
 
 ## 2. 总约束
 1. 文档语义优先于代码便利性。
-2. 当前只允许构建域模型与组刊器，不要实现外围系统。
+2. 当前只允许构建域模型、组刊器、width-aware rendering 与 dry-run print boundary，不要实现外围系统。
 3. 不要创建一个单独的 `Scene` 类来混合配置与快照语义。
 4. 代码中使用 `ContentApp` 代表产品概念中的 App。
 5. 一个 `ContentApp` 在一次 `Issue` 中最多返回一个 `Block`。
@@ -319,3 +319,88 @@ class IssueAssembler:
 5. 过期 Block 会被剔除
 6. 即时触发会生成独立一期
 7. 一个 App 在一次 Issue 中只发布一个 Block
+
+## 16. Printing / application boundary
+当前阶段允许建立 rendering 与未来真实打印机之间的边界对象。  
+这些对象属于 printing / application boundary，而不是 domain。
+
+说明：
+- 允许在这一层传递“已经渲染好的票据文本”
+- 不允许把 printing 对象混入 `Issue` / `Block` / `ContentApp`
+- 不允许在当前阶段引入产品级失败恢复、历史记录或打印状态机
+
+## 17. RenderedReceipt
+建议定义 `RenderedReceipt`：
+
+```python
+from dataclasses import dataclass
+from datetime import datetime
+
+
+@dataclass(slots=True, frozen=True)
+class RenderedReceipt:
+    issue_id: str
+    publication_slot_id: str | None
+    trigger_mode: TriggerMode
+    profile_name: str
+    text: str
+    rendered_at: datetime
+```
+
+约束：
+1. `RenderedReceipt` 是 rendering -> printing 的边界 artifact
+2. 它不是 domain 对象
+3. 它只表示“已经渲染好的票据文本”
+4. 当前阶段不要在这里引入打印状态机
+
+## 18. PrinterAdapter
+建议定义 `PrinterAdapter`：
+
+```python
+from abc import ABC, abstractmethod
+
+
+class PrinterAdapter(ABC):
+    name: str
+
+    @abstractmethod
+    def deliver(self, receipt: RenderedReceipt) -> None:
+        raise NotImplementedError
+```
+
+约束：
+1. adapter 只接收已经渲染好的 `RenderedReceipt`
+2. adapter 不负责渲染
+3. adapter 不负责 domain 组刊
+4. adapter 不负责历史记录
+5. 当前阶段不要引入 retry / fallback / product semantics
+6. adapter 异常允许直接向外抛出
+
+## 19. PrintService
+建议定义 `PrintService`：
+
+```python
+class PrintService:
+    def render_issue_to_receipt(
+        self,
+        issue: Issue,
+        profile: RenderProfile = RECEIPT_42,
+    ) -> RenderedReceipt:
+        raise NotImplementedError
+
+    def print_issue(
+        self,
+        issue: Issue,
+        adapter: PrinterAdapter,
+        profile: RenderProfile = RECEIPT_42,
+    ) -> RenderedReceipt:
+        raise NotImplementedError
+```
+
+约束：
+1. `render_issue_to_receipt()` 内部调用现有 `render_issue()`
+2. `print_issue()` 先 render，再把 artifact 交给 adapter
+3. `PrintService` 不修改 `Issue`
+4. `PrintService` 不记录历史
+5. `PrintService` 不实现失败恢复
+6. adapter 异常直接 bubble up

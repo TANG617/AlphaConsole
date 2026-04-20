@@ -56,17 +56,19 @@
 - `SceneApp`
 - `SceneBlock`
 - `IssueAssembler`
-- 纯文本 rendering
+- width-aware rendering
+- print pipeline boundary（dry-run）
 - 最小单元测试
 
 ## 当前阶段说明
-当前阶段已进入 **width-aware receipt layout**。  
-这一步的目标是把“能输出字符串”推进到“能在固定宽度下稳定排出文本票据”，而不是进入 printer adapter。
+当前阶段已进入 **print pipeline boundary（dry-run）**。  
+这一步的目标是在现有 width-aware rendering 之上建立清晰的打印边界，而不是进入真实 printer adapter / ESC/POS / 真实打印机硬件接入。
 
 ## 明确不做
 当前阶段明确不做：
-- Printer adapter
+- 真实 printer adapter
 - ESC/POS
+- 真实打印机硬件接入
 - Scheduler
 - Database / persistence
 - TUI / Web UI
@@ -74,6 +76,8 @@
 - WeatherApp / NewsApp 的真实内容采集
 - 历史查询功能
 - 打印失败恢复
+- print retry / recovery
+- print history query
 - pagination
 - truncation
 
