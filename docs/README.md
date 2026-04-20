@@ -56,11 +56,17 @@
 - `SceneApp`
 - `SceneBlock`
 - `IssueAssembler`
+- 纯文本 rendering
 - 最小单元测试
+
+## 当前阶段说明
+当前阶段已进入 **width-aware receipt layout**。  
+这一步的目标是把“能输出字符串”推进到“能在固定宽度下稳定排出文本票据”，而不是进入 printer adapter。
 
 ## 明确不做
 当前阶段明确不做：
 - Printer adapter
+- ESC/POS
 - Scheduler
 - Database / persistence
 - TUI / Web UI
@@ -68,6 +74,8 @@
 - WeatherApp / NewsApp 的真实内容采集
 - 历史查询功能
 - 打印失败恢复
+- pagination
+- truncation
 
 ## 术语使用约定
 ### 产品术语

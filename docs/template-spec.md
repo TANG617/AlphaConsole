@@ -43,7 +43,8 @@ TRIGGER: scheduled
 
 说明：
 - 顶部和底部可以使用简单分隔线
-- 当前阶段不要求热敏打印宽度适配
+- 当前阶段只进入基于 render profile 的文本宽度约束
+- 当前阶段不要求真实打印机宽度映射
 - 当前阶段只保证信息顺序稳定
 
 ## 4. Block 通用规范
@@ -141,12 +142,36 @@ SceneBlock 的固定结构顺序如下：
 - `title` 不可为空
 - `body` 建议不可为空；如为空，应由上游决定不发布
 
-## 9. 当前阶段不做的模板能力
+## 9. Width-aware rendering（当前阶段新增）
+### 9.1 目标
+当前阶段支持“按字符显示宽度”进行纯文本票据排版。  
+目标是为后续真实打印做准备，而不是在当前阶段绑定某个具体打印机设备。
+
+### 9.2 当前支持
+- 基于字符显示宽度进行文本换行
+- 预设 render profile，例如 32 列、42 列
+- `IssueHeader`、`SceneBlock`、`Issue` 的固定宽度纯文本输出
+- 中英文混排下的基础显示宽度计算
+
+### 9.3 当前不做
+- truncation
+- pagination
+- device-specific printer mapping
+- 真实纸宽探测
+- ESC/POS 指令映射
+
+### 9.4 SceneBlock 的换行要求
+- 长 note 需要自动换行
+- 长 checklist item 需要自动换行
+- checklist continuation line 需要保持稳定缩进
+- 自动换行以字符显示宽度为基础，而不是字节长度或 Python 字符数
+
+## 10. 当前阶段不做的模板能力
 - 自动分页
 - 长度裁剪
 - 栏目优先级
 - 多栏布局
 - 插图
 - logo / masthead
-- 不同纸宽适配
+- 不同设备的真实纸宽适配
 - 条码 / 二维码
