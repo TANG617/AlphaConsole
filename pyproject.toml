@@ -1,23 +1,17 @@
 [project]
 name = "alpha-console"
-version = "0.1.0"
-description = "Local-first planner and checklist printer MVP"
+version = "0.2.0"
+description = "Minimal domain skeleton for a personal paper publishing system"
 readme = "README.md"
 authors = [
     { name = "LiTang", email = "litang0617@outlook.com" }
 ]
 requires-python = ">=3.11"
-dependencies = [
-    "apscheduler>=3.11.2",
-    "pillow>=12.2.0",
-    "python-escpos>=3.1",
-    "textual>=8.2.3",
-    "typer>=0.24.1",
-]
-
-[project.scripts]
-alpha-console = "alpha_console:main"
+dependencies = []
 
 [build-system]
 requires = ["uv_build>=0.11.7,<0.12.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "alphaconsole"
