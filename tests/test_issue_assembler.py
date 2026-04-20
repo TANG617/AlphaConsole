@@ -140,6 +140,26 @@ def test_immediate_trigger_creates_standalone_issue() -> None:
     assert issue.blocks[0].trigger_mode is TriggerMode.IMMEDIATE
 
 
+def test_scheduled_issue_ignores_standalone_blocks() -> None:
+    assembler = IssueAssembler()
+    slot = make_slot()
+    app = make_scene_app(
+        app_id="scene-standalone",
+        name="Standalone scene",
+        scene_note="Do not merge",
+        merge_policy=MergePolicy.STANDALONE,
+    )
+
+    issue = assembler.assemble_scheduled_issue(
+        slot=slot,
+        apps=[app],
+        now=datetime(2026, 4, 20, 12, 0, 0),
+        sequence_of_day=6,
+    )
+
+    assert issue.blocks == ()
+
+
 def test_one_app_is_published_once_per_issue() -> None:
     assembler = IssueAssembler()
     slot = make_slot()
@@ -154,7 +174,7 @@ def test_one_app_is_published_once_per_issue() -> None:
         slot=slot,
         apps=[app],
         now=datetime(2026, 4, 20, 12, 0, 0),
-        sequence_of_day=5,
+        sequence_of_day=7,
     )
 
     assert len(issue.blocks) == 1

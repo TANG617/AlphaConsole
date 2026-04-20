@@ -116,6 +116,8 @@ class IssueAssembler:
             if block.is_expired(ctx.issued_at):
                 continue
             if block.merge_policy is not MergePolicy.MERGEABLE:
+                # Standalone blocks belong to independent issues, not the default
+                # scheduled merged issue assembled in the current phase.
                 continue
 
             kept_blocks.append((block.created_at, insert_order, block))
