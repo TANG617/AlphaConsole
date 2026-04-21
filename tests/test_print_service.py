@@ -64,7 +64,11 @@ def make_issue(*, blocks: tuple[SceneBlock, ...]) -> Issue:
 class RaisingPrinterAdapter(PrinterAdapter):
     name = "raising"
 
+    def __init__(self) -> None:
+        self.deliver_calls = 0
+
     def deliver(self, receipt) -> None:
+        self.deliver_calls += 1
         raise RuntimeError("delivery failed")
 
 
@@ -93,6 +97,7 @@ def test_print_issue_delivers_same_receipt_instance_to_adapter() -> None:
     receipt = service.print_issue(issue, adapter, RECEIPT_42)
 
     assert adapter.receipts[0] is receipt
+    assert issue.printed_at is None
 
 
 def test_rendered_receipt_changes_with_profile() -> None:
@@ -115,11 +120,15 @@ def test_rendered_receipt_changes_with_profile() -> None:
     assert receipt_32.text != receipt_42.text
 
 
-def test_print_service_bubbles_up_adapter_exception() -> None:
+def test_print_service_bubbles_up_adapter_exception_without_retry() -> None:
     service = PrintService()
     issue = make_issue(
         blocks=(make_scene_block(block_id="scene-1", title="Lunch", scene_note="Soup"),)
     )
+    adapter = RaisingPrinterAdapter()
 
     with pytest.raises(RuntimeError, match="delivery failed"):
-        service.print_issue(issue, RaisingPrinterAdapter(), RECEIPT_42)
+        service.print_issue(issue, adapter, RECEIPT_42)
+
+    assert adapter.deliver_calls == 1
+    assert issue.printed_at is None

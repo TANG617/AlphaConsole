@@ -228,6 +228,64 @@ Phase 5 Stop 条件
 5. 全量测试通过
 6. 没有越界进入 ESC/POS / 硬件 / 队列 / 持久化 / UI / LLM
 
+---
+
+### Phase 6：Publication Runtime（dry-run end-to-end）
+创建以下文件：
+
+```text
+docs/
+  publication-runtime.md
+
+src/alphaconsole/application/
+  __init__.py
+  publication_result.py
+  publication_service.py
+
+tests/
+  test_publication_service.py
+  test_end_to_end_publication_runtime.py
+```
+
+Phase 6 目标
+1. 在 application 层新增同步可调用的 publication runtime 入口
+2. 串联 `IssueAssembler`、`PrintService` 与 `PrinterAdapter`
+3. 保持 domain、rendering 与 printing 的边界不变
+4. 保持当前 open-loop 语义不变
+5. 不进入 scheduler / persistence / UI / LLM / 真实设备
+
+Phase 6 要求
+- 定义：
+  - `PublicationResult`
+  - `PublicationService`
+- `PublicationService` 提供：
+  - `publish_scheduled(...)`
+  - `publish_immediate(...)`
+- `PublicationService` 只做 application-level orchestration
+- 不修改 `Issue.printed_at`
+- 不实现历史、重试、恢复或补偿语义
+
+Phase 6 测试要求
+1. scheduled end-to-end dry-run 路径可用
+2. immediate end-to-end dry-run 路径可用
+3. header-only empty issue 路径可用
+4. `PublicationResult.receipt` 与 adapter 收到的是同一对象
+5. blank-line preservation regression 已锁住
+6. generic block fallback regression 已锁住
+7. `PrintService` 不修改 `Issue.printed_at`
+8. file adapter 对空 issue 的 receipt 也可稳定写出
+
+Phase 6 Stop 条件
+1. `README.md`、`docs/README.md`、`docs/contracts.md`、`docs/coding-plan.md` 已同步
+2. 新增 `docs/publication-runtime.md`
+3. `PublicationResult` 已存在
+4. `PublicationService` 已存在
+5. `publish_scheduled(...)` 和 `publish_immediate(...)` 可用
+6. scheduled / immediate / empty issue 三条 end-to-end dry-run 路径都有测试
+7. deferred regressions 已补齐或确认已覆盖
+8. 全量测试通过
+9. 没有越界进入 ESC/POS / 硬件 / scheduler / persistence / UI / LLM
+
 ## 3. 推荐目录职责
 ### `domain/enums.py`
 定义最小枚举，不要放业务逻辑。

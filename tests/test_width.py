@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from alphaconsole.rendering.layout import wrap_text
+from alphaconsole.rendering.layout import wrap_paragraphs, wrap_text
 from alphaconsole.rendering.width import display_width
 
 
@@ -21,3 +21,10 @@ def test_wrap_text_lines_do_not_exceed_target_width() -> None:
 
     assert lines == ["Remember", "vegetables and", "soup tonight"]
     assert all(display_width(line) <= 16 for line in lines)
+
+
+def test_wrap_paragraphs_preserves_explicit_blank_lines() -> None:
+    lines = wrap_paragraphs("Alpha beta\n\nGamma delta", 10)
+
+    assert lines == ["Alpha beta", "", "Gamma", "delta"]
+    assert all(display_width(line) <= 10 for line in lines if line)

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime
 
 from alphaconsole.domain import (
+    Block,
     Issue,
     IssueHeader,
     MergePolicy,
@@ -39,7 +41,7 @@ def make_scene_block(
     )
 
 
-def make_issue(*, blocks: tuple[SceneBlock, ...]) -> Issue:
+def make_issue(*, blocks: tuple[Block, ...]) -> Issue:
     printed_at = datetime(2026, 4, 20, 12, 0, 0)
     header = IssueHeader(
         issue_date=date(2026, 4, 20),
@@ -57,6 +59,11 @@ def make_issue(*, blocks: tuple[SceneBlock, ...]) -> Issue:
         blocks=blocks,
         created_at=printed_at,
     )
+
+
+@dataclass(slots=True)
+class DummyBlock(Block):
+    pass
 
 
 def test_render_issue_header_text() -> None:
@@ -208,3 +215,29 @@ def test_render_issue_is_stable_for_receipt_42_profile() -> None:
             "[ ] Stretch and review notes together",
         ]
     )
+
+
+def test_render_issue_uses_generic_fallback_for_non_scene_blocks() -> None:
+    issue = make_issue(
+        blocks=(
+            DummyBlock(
+                block_id="generic-1",
+                block_type="generic",
+                title="Generic",
+                body="Fallback body text",
+                source_app_id="generic-app",
+                source_app_type="generic",
+                publication_slot_id="lunch-slot",
+                trigger_mode=TriggerMode.SCHEDULED,
+                merge_policy=MergePolicy.MERGEABLE,
+                expires_at=None,
+                template_type="generic.default",
+                created_at=datetime(2026, 4, 20, 12, 0, 0),
+            ),
+        )
+    )
+
+    text = render_issue(issue, RECEIPT_32)
+
+    assert "[Generic]" in text
+    assert "Fallback body text" in text
