@@ -1,0 +1,99 @@
+# AlphaConsole 配置格式（当前阶段）
+## 1. 目标
+当前阶段的目标不是定义最终产品级 schema，而是提供一个简单、稳定、适合人工编辑的 TOML 配置格式。
+
+## 2. 当前阶段技术约束
+- 使用 stdlib `tomllib`
+- 不引入 YAML 或第三方配置框架
+- 当前阶段只覆盖：
+  - publication slots
+  - scene apps
+  - default render profile
+  - default dry-run adapter kind
+
+## 3. 推荐配置结构
+```toml
+[rendering]
+default_profile = "receipt42"
+
+[delivery]
+default_adapter = "stdout"
+
+[[publication_slots]]
+slot_id = "morning"
+name = "Morning"
+publish_time = "07:00"
+is_enabled = true
+
+[[publication_slots]]
+slot_id = "noon"
+name = "Noon"
+publish_time = "12:00"
+is_enabled = true
+
+[[scene_apps]]
+app_id = "lunch"
+name = "Lunch"
+target_publication_slot_id = "noon"
+scene_note = "多吃蔬菜，不要喝可乐"
+checklist_items = ["吃得健康", "力量训练", "21:00 结束工作"]
+is_enabled = true
+```
+
+## 4. 当前支持的配置项
+### 4.1 rendering
+- `default_profile`
+  - 当前阶段建议值：
+    - `receipt32`
+    - `receipt42`
+
+### 4.2 delivery
+- `default_adapter`
+  - 当前阶段建议值：
+    - `stdout`
+    - `file`
+    - `memory`
+- `output_dir`
+  - 可选
+  - 仅在 default adapter 为 `file` 时需要
+
+### 4.3 publication_slots
+每个 slot 当前支持：
+- `slot_id`
+- `name`
+- `publish_time`
+- `is_enabled`
+- `description`（可选）
+- `recurrence_rule`（可选，占位）
+
+### 4.4 scene_apps
+每个 scene app 当前支持：
+- `app_id`
+- `name`
+- `target_publication_slot_id`
+- `scene_note`（可选，空字符串按无 note 处理）
+- `checklist_items`（可选）
+- `is_enabled`
+- `description`（可选）
+- `scene_description`（可选）
+- `recurrence_rule`（可选，占位）
+
+## 5. 当前阶段校验原则
+- 必填字段缺失时，loader 应抛出清晰异常
+- `publish_time` 必须是可解析的时间字符串
+- 不支持未知 app 类型
+- `scene_note` 与 `checklist_items` 不能同时为空
+- default profile / adapter 必须落在当前支持范围内
+
+## 6. 当前明确不支持
+- weather/news app 配置
+- 历史配置
+- queue 配置
+- retry 配置
+- printer device 配置
+- 多 profile fallback
+- 多 adapter routing 规则
+
+## 7. 说明
+当前阶段配置只是从 config 世界进入 domain/application 世界的最小桥接层。  
+它不是最终产品级 schema，也不应该反向污染 domain 对象设计。
