@@ -23,22 +23,23 @@ def make_receipt(
 
 
 def test_file_adapter_creates_text_file(tmp_path) -> None:
-    adapter = FilePrinterAdapter(output_dir=tmp_path)
+    output_dir = tmp_path / "nested" / "receipts"
+    adapter = FilePrinterAdapter(output_dir=output_dir)
     receipt = make_receipt()
 
     adapter.deliver(receipt)
 
-    assert (tmp_path / "issue-1__receipt_42.txt").exists()
+    assert (output_dir / "issue-1__receipt_42.txt").exists()
 
 
 def test_file_adapter_writes_receipt_text_exactly(tmp_path) -> None:
     adapter = FilePrinterAdapter(output_dir=tmp_path)
-    receipt = make_receipt(text="rendered receipt text")
+    receipt = make_receipt(text="rendered 午餐 receipt")
 
     adapter.deliver(receipt)
 
     assert (tmp_path / "issue-1__receipt_42.txt").read_text(encoding="utf-8") == (
-        "rendered receipt text"
+        "rendered 午餐 receipt"
     )
 
 
@@ -61,4 +62,15 @@ def test_file_adapter_overwrites_same_named_file(tmp_path) -> None:
 
     assert (tmp_path / "issue-1__receipt_42.txt").read_text(encoding="utf-8") == (
         "second version"
+    )
+
+
+def test_file_adapter_writes_header_only_receipt_text(tmp_path) -> None:
+    adapter = FilePrinterAdapter(output_dir=tmp_path)
+    receipt = make_receipt(text="=" * 42 + "\nDATE: 2026-04-21")
+
+    adapter.deliver(receipt)
+
+    assert (tmp_path / "issue-1__receipt_42.txt").read_text(encoding="utf-8") == (
+        "=" * 42 + "\nDATE: 2026-04-21"
     )

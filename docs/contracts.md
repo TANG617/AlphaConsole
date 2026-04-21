@@ -5,7 +5,7 @@
 
 ## 2. 总约束
 1. 文档语义优先于代码便利性。
-2. 当前只允许构建域模型、组刊器、width-aware rendering 与 dry-run print boundary，不要实现外围系统。
+2. 当前只允许构建域模型、组刊器、width-aware rendering、dry-run print boundary 与 publication runtime，不要实现外围系统。
 3. 不要创建一个单独的 `Scene` 类来混合配置与快照语义。
 4. 代码中使用 `ContentApp` 代表产品概念中的 App。
 5. 一个 `ContentApp` 在一次 `Issue` 中最多返回一个 `Block`。
@@ -404,3 +404,67 @@ class PrintService:
 4. `PrintService` 不记录历史
 5. `PrintService` 不实现失败恢复
 6. adapter 异常直接 bubble up
+
+## 20. Application boundary / publication runtime
+当前阶段允许建立一个应用层 publication runtime，用于把组刊、渲染与 dry-run delivery 串联成同步调用入口。
+这些对象属于 application boundary，而不是 domain。
+
+说明：
+- 允许在这一层组织 `IssueAssembler` 与 `PrintService`
+- 不允许把 application 对象混入 `Issue` / `Block` / `ContentApp`
+- 不允许在当前阶段引入持久化、历史、调度、重试或产品级失败恢复
+
+## 21. PublicationResult
+建议定义 `PublicationResult`：
+
+```python
+from dataclasses import dataclass
+
+
+@dataclass(slots=True)
+class PublicationResult:
+    issue: Issue
+    receipt: RenderedReceipt
+    adapter_name: str
+```
+
+约束：
+1. `PublicationResult` 是 application boundary 对象，不是 domain 对象
+2. 它只表示一次 publication 调用的返回结果
+3. 当前阶段不要在这里引入状态机
+4. 当前阶段不要在这里引入持久化语义
+5. `receipt` 必须就是本次实际 deliver 给 adapter 的那个对象实例
+
+## 22. PublicationService
+建议定义 `PublicationService`：
+
+```python
+class PublicationService:
+    def publish_scheduled(
+        self,
+        slot: PublicationSlot,
+        apps: Sequence[ContentApp],
+        adapter: PrinterAdapter,
+        now: datetime,
+        sequence_of_day: int,
+        profile: RenderProfile = RECEIPT_42,
+    ) -> PublicationResult:
+        raise NotImplementedError
+
+    def publish_immediate(
+        self,
+        app: ContentApp,
+        adapter: PrinterAdapter,
+        now: datetime,
+        sequence_of_day: int,
+        profile: RenderProfile = RECEIPT_42,
+    ) -> PublicationResult:
+        raise NotImplementedError
+```
+
+约束：
+1. `PublicationService` 属于 application boundary，而不是 domain
+2. `PublicationService` 负责串联 `IssueAssembler` 与 `PrintService`
+3. `PublicationService` 不负责持久化、历史、调度或失败恢复
+4. `publish_scheduled()` 与 `publish_immediate()` 都必须直接 bubble up adapter 异常
+5. `PublicationService` 不修改 `Issue.printed_at`

@@ -56,13 +56,16 @@
 - `SceneApp`
 - `SceneBlock`
 - `IssueAssembler`
+- `PublicationService`
 - width-aware rendering
 - print pipeline boundary（dry-run）
+- publication runtime（dry-run end-to-end）
 - 最小单元测试
 
 ## 当前阶段说明
-当前阶段已进入 **print pipeline boundary（dry-run）**。  
-这一步的目标是在现有 width-aware rendering 之上建立清晰的打印边界，而不是进入真实 printer adapter / ESC/POS / 真实打印机硬件接入。
+当前阶段已进入 **publication runtime（dry-run end-to-end）**。
+这一步的目标是在现有 `IssueAssembler`、width-aware rendering 与 dry-run print boundary 之上，建立一个 application-level orchestration 入口。
+当前 milestone 不是 printer driver milestone，也不是 scheduler milestone。
 
 ## 明确不做
 当前阶段明确不做：
