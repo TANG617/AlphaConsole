@@ -30,7 +30,7 @@ def load_runtime_config(path: Path) -> RuntimeConfig:
     scene_apps = _optional_array_of_tables(data, "scene_apps")
 
     rendering = RenderingConfig(
-        default_profile=_optional_string(
+        default_profile=_defaulted_non_blank_string(
             rendering_data,
             "default_profile",
             context="rendering.default_profile",
@@ -38,7 +38,7 @@ def load_runtime_config(path: Path) -> RuntimeConfig:
         )
     )
     delivery = DeliveryConfig(
-        default_adapter=_optional_string(
+        default_adapter=_defaulted_non_blank_string(
             delivery_data,
             "default_adapter",
             context="delivery.default_adapter",
@@ -149,6 +149,26 @@ def _required_string(data: Mapping[str, object], key: str, *, context: str) -> s
     normalized = value.strip()
     if not normalized:
         raise RuntimeConfigError(f"{context}.{key} must be a non-empty string.")
+    return normalized
+
+
+def _defaulted_non_blank_string(
+    data: Mapping[str, object],
+    key: str,
+    *,
+    context: str,
+    default: str,
+) -> str:
+    if key not in data:
+        return default
+
+    value = data[key]
+    if not isinstance(value, str):
+        raise RuntimeConfigError(f"{context} must be a non-empty string.")
+
+    normalized = value.strip()
+    if not normalized:
+        raise RuntimeConfigError(f"{context} must be a non-empty string.")
     return normalized
 
 

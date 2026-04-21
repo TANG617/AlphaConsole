@@ -98,6 +98,66 @@ is_enabled = true
         compile_runtime_config(config)
 
 
+def test_load_runtime_config_rejects_blank_default_profile(tmp_path: Path) -> None:
+    config_path = tmp_path / "runtime.toml"
+    config_path.write_text(
+        """
+[rendering]
+default_profile = ""
+
+[[publication_slots]]
+slot_id = "noon"
+name = "Noon"
+publish_time = "12:00"
+is_enabled = true
+
+[[scene_apps]]
+app_id = "lunch"
+name = "Lunch"
+target_publication_slot_id = "noon"
+scene_note = "Eat vegetables"
+is_enabled = true
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        RuntimeConfigError,
+        match=r"rendering\.default_profile must be a non-empty string",
+    ):
+        load_runtime_config(config_path)
+
+
+def test_load_runtime_config_rejects_blank_default_adapter(tmp_path: Path) -> None:
+    config_path = tmp_path / "runtime.toml"
+    config_path.write_text(
+        """
+[delivery]
+default_adapter = ""
+
+[[publication_slots]]
+slot_id = "noon"
+name = "Noon"
+publish_time = "12:00"
+is_enabled = true
+
+[[scene_apps]]
+app_id = "lunch"
+name = "Lunch"
+target_publication_slot_id = "noon"
+scene_note = "Eat vegetables"
+is_enabled = true
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        RuntimeConfigError,
+        match=r"delivery\.default_adapter must be a non-empty string",
+    ):
+        load_runtime_config(config_path)
+
+
 def test_load_runtime_config_normalizes_blank_scene_note_when_checklist_exists(
     tmp_path: Path,
 ) -> None:
