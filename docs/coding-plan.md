@@ -286,6 +286,89 @@ Phase 6 Stop 条件
 8. 全量测试通过
 9. 没有越界进入 ESC/POS / 硬件 / scheduler / persistence / UI / LLM
 
+---
+
+### Phase 7：Manual Runtime & Configurable CLI
+创建以下文件：
+
+```text
+docs/
+  configuration.md
+  manual-runtime.md
+
+examples/
+  basic.toml
+
+src/alphaconsole/config/
+  __init__.py
+  models.py
+  loader.py
+  compiler.py
+
+src/alphaconsole/runtime/
+  __init__.py
+  builder.py
+
+src/alphaconsole/printing/
+  stdout_adapter.py
+
+src/alphaconsole/
+  cli.py
+
+tests/
+  test_config_loader.py
+  test_runtime_builder.py
+  test_cli.py
+  test_end_to_end_manual_runtime.py
+```
+
+Phase 7 目标
+1. 支持从 TOML 配置文件加载 publication slots、scene apps、默认 profile 与默认 dry-run adapter
+2. 提供一个 runtime builder / composition root，组装 `IssueAssembler`、`PrintService` 与 `PublicationService`
+3. 提供 operator-facing 的 manual CLI
+4. 保持 dry-run、open-loop、无 scheduler、无 persistence、无真实打印机
+
+Phase 7 要求
+- 使用 stdlib：
+  - `tomllib`
+  - `argparse`
+- CLI 至少支持：
+  - `list`
+  - `preview scheduled`
+  - `publish scheduled`
+  - `publish immediate`
+- 当前阶段只支持 dry-run adapters：
+  - `stdout`
+  - `file`
+  - `memory`
+- 不改动 domain 层产品语义
+- 不引入新的真实 app 类型
+
+Phase 7 测试要求
+1. config loader 能成功加载最小 TOML 配置
+2. config 错误会抛出清晰异常
+3. runtime builder 能返回 `RuntimeBundle`
+4. CLI 的 list / preview / publish scheduled / publish immediate 都可用
+5. examples/basic.toml 可直接用于测试
+6. file adapter 与 stdout adapter 至少各覆盖一条 manual runtime 路径
+7. 现有 Phase 4 / 5 / 6 tests 全部继续通过
+
+Phase 7 Stop 条件
+1. `README.md`、`docs/README.md`、`docs/contracts.md`、`docs/coding-plan.md` 已同步
+2. 新增 `docs/configuration.md`
+3. 新增 `docs/manual-runtime.md`
+4. `RuntimeConfig` / `ConfigLoader` / `ConfigCompiler` 已存在
+5. `RuntimeBundle` / `build_runtime_from_config()` 已存在
+6. `StdoutPrinterAdapter` 已存在
+7. CLI 支持：
+   - `list`
+   - `preview scheduled`
+   - `publish scheduled`
+   - `publish immediate`
+8. `examples/basic.toml` 可用
+9. config / runtime / CLI / end-to-end tests 全部通过
+10. 没有越界进入 ESC/POS / 硬件 / scheduler / persistence / UI / LLM
+
 ## 3. 推荐目录职责
 ### `domain/enums.py`
 定义最小枚举，不要放业务逻辑。

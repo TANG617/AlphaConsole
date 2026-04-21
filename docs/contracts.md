@@ -5,7 +5,7 @@
 
 ## 2. 总约束
 1. 文档语义优先于代码便利性。
-2. 当前只允许构建域模型、组刊器、width-aware rendering、dry-run print boundary 与 publication runtime，不要实现外围系统。
+2. 当前只允许构建域模型、组刊器、width-aware rendering、dry-run print boundary、publication runtime 与 manual runtime，不要实现外围系统。
 3. 不要创建一个单独的 `Scene` 类来混合配置与快照语义。
 4. 代码中使用 `ContentApp` 代表产品概念中的 App。
 5. 一个 `ContentApp` 在一次 `Issue` 中最多返回一个 `Block`。
@@ -468,3 +468,84 @@ class PublicationService:
 3. `PublicationService` 不负责持久化、历史、调度或失败恢复
 4. `publish_scheduled()` 与 `publish_immediate()` 都必须直接 bubble up adapter 异常
 5. `PublicationService` 不修改 `Issue.printed_at`
+
+## 23. Config / runtime boundary
+当前阶段允许建立一个 config/runtime boundary，用于把静态 TOML 配置编译为 manual runtime 所需对象。
+这些对象属于 application / composition / operator boundary，而不是 domain。
+
+说明：
+- 允许在这一层加载 TOML、做最小校验并编译成 runtime 可用对象
+- 不允许把 config dataclass 直接当作 `PublicationSlot`、`SceneApp` 或其他 domain 对象
+- 不允许在当前阶段引入持久化、队列、设备发现或复杂 DI framework
+
+## 24. RuntimeConfig
+建议定义 `RuntimeConfig`：
+
+```python
+@dataclass(slots=True)
+class RuntimeConfig:
+    ...
+```
+
+约束：
+1. `RuntimeConfig` 是 config 层对象，不是 domain 对象
+2. 当前阶段使用 stdlib `tomllib` 从 TOML 文件加载
+3. 当前阶段只覆盖：
+   - publication slots
+   - scene apps
+   - default render profile
+   - default dry-run adapter kind
+4. 当前阶段不要把它扩张成最终产品级 schema
+
+## 25. ConfiguredSceneApp
+当前阶段允许在 config 层定义轻量 `ConfiguredSceneApp`，再由 compiler 转成 domain `SceneApp`。
+
+约束：
+1. `ConfiguredSceneApp` 只表达配置文件中的 scene app
+2. 它不是 domain `SceneApp`
+3. compiler 负责从 config 世界进入 domain / application 世界
+
+## 26. RuntimeBundle
+建议定义 `RuntimeBundle`：
+
+```python
+@dataclass(slots=True)
+class RuntimeBundle:
+    publication_service: PublicationService
+    slots_by_id: dict[str, PublicationSlot]
+    apps_by_id: dict[str, ContentApp]
+    default_profile: RenderProfile
+    default_adapter_kind: str
+```
+
+约束：
+1. `RuntimeBundle` 是 composition root 的产物，不是 domain 对象
+2. 它负责暴露 manual runtime 所需的最小可运行对象
+3. 当前阶段不要把它扩张成 service locator
+
+## 27. AdapterFactory
+当前阶段允许存在一个最小 `AdapterFactory`，用于创建 dry-run adapters。
+
+约束：
+1. `AdapterFactory` 属于 runtime / composition boundary
+2. 当前阶段只需要支持：
+   - `stdout`
+   - `file`
+   - `memory`
+3. 不允许把 adapter factory 放进 domain
+4. 不允许在当前阶段引入真实设备发现或 capability negotiation
+
+## 28. CLI 最小命令面
+当前阶段允许提供一个 operator-facing CLI。
+
+建议最小命令面：
+1. `list`
+2. `preview scheduled`
+3. `publish scheduled`
+4. `publish immediate`
+
+约束：
+1. CLI 使用 stdlib `argparse`
+2. CLI 只做 manual dry-run 操作，不做 scheduler / daemon
+3. CLI 不负责扩张产品语义
+4. CLI 可以覆盖 profile / adapter / now / sequence_of_day 等运行参数
