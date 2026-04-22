@@ -448,6 +448,88 @@ Phase 8 Stop 条件
 9. SQLite / scheduler / runtime / CLI / e2e tests 全部通过
 10. 没有越界进入 ESC/POS / 硬件 / scheduler daemon / persistence beyond SQLite runtime state / UI / LLM
 
+---
+
+### Phase 9：Printer Hardware Enablement
+创建或修改以下文件：
+
+```text
+docs/
+  printer-targets.md
+  hardware-delivery.md
+  raster-printing.md
+
+src/alphaconsole/printing/
+  targets.py
+  raster.py
+  escpos.py
+  socket_adapter.py
+  bytes_file_adapter.py
+  test_page.py
+
+tests/
+  test_printer_target_config.py
+  test_raster_rendering.py
+  test_escpos_encoding.py
+  test_socket_adapter.py
+  test_bytes_file_adapter.py
+  test_cli_hardware_printing.py
+  test_end_to_end_hardware_runtime.py
+```
+
+Phase 9 目标
+1. 引入 printer target config
+2. 建立 raster-first 的真实打印准备链路
+3. 支持最小 ESC/POS raster bytes encoding
+4. 支持 `escpos_socket` 与 `escpos_bytes_file`
+5. 保持 dry-run adapters 与自动 runtime 兼容
+
+Phase 9 要求
+- 只允许新增一个第三方依赖：
+  - `Pillow`
+- 当前阶段只支持：
+  - 单台默认打印机
+  - 单机、本地优先
+  - raster-first
+- CLI 至少支持：
+  - `targets list`
+  - `print test-page`
+  - `publish ... --target-id`
+  - `runtime ... --target-id`
+- 不实现：
+  - USB / CUPS / 蓝牙打印
+  - retry / recovery
+  - 多打印机编排
+  - printer discovery
+
+Phase 9 测试要求
+1. printer target config 能正确编译
+2. receipt text 能稳定 rasterize 成 image
+3. ESC/POS bytes encoding 稳定可重复
+4. socket adapter 能向 fake TCP server 发送非空 bytes
+5. bytes file adapter 能稳定写出 `.bin`
+6. CLI 的 targets / test-page / target-aware publish / runtime 可用
+7. 至少 1 条 end-to-end hardware runtime 路径可用
+
+Phase 9 Stop 条件
+1. `README.md`、`docs/README.md`、`docs/contracts.md`、`docs/coding-plan.md`、`docs/configuration.md`、`docs/manual-runtime.md`、`docs/runtime-state.md`、`docs/scheduler-runtime.md` 已同步
+2. 新增：
+   - `docs/printer-targets.md`
+   - `docs/hardware-delivery.md`
+   - `docs/raster-printing.md`
+3. printer target config 已存在并可用
+4. raster-first rendering 已存在并可用
+5. ESC/POS raster bytes encoding 已存在并可用
+6. `EscPosSocketPrinterAdapter` 已存在并可用
+7. `EscPosBytesFileAdapter` 已存在并可用
+8. CLI 新增：
+   - `targets list`
+   - `print test-page`
+   - `--target-id` 覆盖能力
+9. 至少 1 条 end-to-end hardware runtime 路径可用
+10. 全量测试通过
+11. 没有越界进入 USB / CUPS / 蓝牙打印 / retry / recovery / UI / LLM / 多打印机编排
+
 ## 3. 推荐目录职责
 ### `domain/enums.py`
 定义最小枚举，不要放业务逻辑。

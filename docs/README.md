@@ -22,14 +22,14 @@
     - 不因为是否打印影响后续生产
 11. 过期规则按 **Block** 为单位处理。
 12. 错过时机的 Block 不打印，不补打。
-13. 当前阶段不考虑打印失败语义。
+13. 当前阶段打印失败只记录 attempt 并抛异常，不做恢复。
 14. 当前阶段不做重印。
 15. 当前阶段不限制单个 Block 或单个 Issue 的长度。
 16. 当前阶段不定义固定 identity element；报头中不强制刊名，后续可能补成字符图案。
 
 ## 当前未定义，Codex 不得自行补全
 以下内容在当前阶段必须保留空位，不得自行设计产品语义：
-- 打印失败后的行为
+- 打印失败后的恢复与补偿行为
 - 重试策略
 - 历史记录 UI
 - 固定刊名字样 / identity element
@@ -37,8 +37,8 @@
 - 长度限制与分页规则
 - 优先级体系
 - 复杂分区与复杂版式规则
-- 打印机驱动细节
-- 调度器和持久化方案
+- USB / CUPS / 蓝牙打印细节
+- 多打印机编排与发现
 
 ## 文档优先级
 出现冲突时，以下文档优先级从高到低：
@@ -64,21 +64,27 @@
 - local scheduler runtime
 - run ledger
 - automated dry-run publication
+- printer target config
+- raster-first hardware printing
+- ESC/POS socket delivery
+- bytes debug output
 - width-aware rendering
 - print pipeline boundary（dry-run）
 - publication runtime（dry-run end-to-end）
 - 最小单元测试
 
 ## 当前阶段说明
-当前阶段已进入 **local automation runtime（SQLite + scheduler + run ledger, dry-run）**。
-这一步的目标是在现有 `IssueAssembler`、width-aware rendering、dry-run print boundary、publication runtime 与 manual runtime 之上，建立一个本地、自动化、可恢复重启的 dry-run runtime。
-当前 milestone 仍然不是 printer hardware milestone，也不是 UI milestone，更不是 cloud/backend milestone。
+当前阶段已进入 **Printer Hardware Enablement（single-printer, raster-first, local-first）**。
+这一步的目标是在现有 `IssueAssembler`、width-aware rendering、print pipeline boundary、publication runtime、manual runtime 与 local automation runtime 之上，建立第一条真实打印链路。
+当前 milestone 不是 multi-printer milestone，也不是 printer discovery milestone，更不是 delivery reliability milestone。
 
 ## 明确不做
 当前阶段明确不做：
-- 真实 printer adapter
-- ESC/POS
-- 真实打印机硬件接入
+- USB printer
+- CUPS
+- 蓝牙打印
+- printer discovery
+- 多打印机路由
 - TUI / Web UI
 - LLM integration
 - WeatherApp / NewsApp 的真实内容采集

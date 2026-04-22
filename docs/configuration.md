@@ -11,6 +11,7 @@
   - default render profile
   - default dry-run adapter kind
   - runtime defaults
+  - printer target config
 
 ## 3. 推荐配置结构
 ```toml
@@ -26,6 +27,25 @@ default_adapter = "stdout"
 
 [delivery.file]
 output_dir = "var/out"
+
+[printing]
+default_target = "stdout_default"
+
+[[printer_targets]]
+target_id = "stdout_default"
+kind = "stdout"
+profile = "receipt42"
+
+[[printer_targets]]
+target_id = "bytes_debug"
+kind = "escpos_bytes_file"
+output_dir = "var/escpos"
+mode = "raster"
+profile = "receipt42"
+font_path = ""
+font_size = 18
+line_spacing = 4
+cut = true
 
 [[publication_slots]]
 slot_id = "morning"
@@ -65,7 +85,35 @@ is_enabled = true
   - 可选
   - 当 default adapter 为 `file` 时必须存在
 
-### 4.3 runtime
+### 4.3 printing
+- `default_target`
+  - 可选
+  - 若给出，必须指向一个存在的 `printer_targets.target_id`
+
+### 4.4 printer_targets
+每个 target 当前支持：
+- `target_id`
+- `kind`
+  - 当前阶段只允许：
+    - `stdout`
+    - `file`
+    - `memory`
+    - `escpos_socket`
+    - `escpos_bytes_file`
+- `profile`（可选）
+- `mode`（可选）
+  - 当前阶段只允许：
+    - `raster`
+- `font_path`（可选，空字符串按 `None` 处理）
+- `font_size`（可选）
+- `line_spacing`（可选）
+- `cut`（可选）
+- `host` / `port`
+  - `escpos_socket` 必填
+- `output_dir`
+  - `file` 与 `escpos_bytes_file` 必填
+
+### 4.5 runtime
 - `catchup_seconds`
   - 默认值：`60`
 - `poll_interval_seconds`
@@ -73,7 +121,7 @@ is_enabled = true
 - 当前阶段只用于本地 automation runtime
 - 当前阶段不扩张为复杂 scheduler config
 
-### 4.4 publication_slots
+### 4.6 publication_slots
 每个 slot 当前支持：
 - `slot_id`
 - `name`
@@ -85,7 +133,7 @@ is_enabled = true
     - `None`
     - `"daily"`
 
-### 4.5 scene_apps
+### 4.7 scene_apps
 每个 scene app 当前支持：
 - `app_id`
 - `name`
@@ -104,6 +152,10 @@ is_enabled = true
 - `scene_note` 与 `checklist_items` 不能同时为空
 - default profile / adapter 必须落在当前支持范围内
 - `default_adapter = "file"` 时必须给出 `delivery.file.output_dir`
+- `printing.default_target` 若存在，必须引用已定义 target
+- `escpos_socket` 必须给出 `host` 与 `port`
+- `file` / `escpos_bytes_file` target 必须给出 `output_dir`
+- `mode` 当前只允许 `raster`
 - `recurrence_rule` 当前阶段不支持复杂解释，slot 只允许 `None` 或 `"daily"`
 
 ## 6. 当前明确不支持
@@ -111,12 +163,14 @@ is_enabled = true
 - 历史配置
 - queue 配置
 - retry 配置
-- printer device 配置
 - 多 profile fallback
 - 多 adapter routing 规则
 - 复杂 recurrence engine
 - scheduler daemon / cron integration
+- USB / CUPS / 蓝牙 target
+- printer discovery / capability negotiation
 
 ## 7. 说明
 当前阶段配置只是从 config 世界进入 domain/application 世界的最小桥接层。  
 它不是最终产品级 schema，也不应该反向污染 domain 对象设计。
+当前阶段的 printer target 配置也是 operator-facing config，不是最终产品级 device schema。

@@ -7,7 +7,8 @@ from .artifact import RenderedReceipt
 
 
 class StdoutPrinterAdapter(PrinterAdapter):
-    name = "stdout"
+    def __init__(self, name: str = "stdout") -> None:
+        self.name = name
 
     def deliver(self, receipt: RenderedReceipt) -> None:
         sys.stdout.write(receipt.text)

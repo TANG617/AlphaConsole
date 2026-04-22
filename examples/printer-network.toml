@@ -12,12 +12,20 @@ default_adapter = "stdout"
 output_dir = "var/out"
 
 [printing]
-default_target = "stdout_default"
+default_target = "receipt_printer"
 
 [[printer_targets]]
-target_id = "stdout_default"
-kind = "stdout"
+target_id = "receipt_printer"
+kind = "escpos_socket"
+host = "127.0.0.1"
+port = 19100
+timeout_seconds = 5.0
+mode = "raster"
 profile = "receipt42"
+font_path = ""
+font_size = 18
+line_spacing = 4
+cut = true
 
 [[printer_targets]]
 target_id = "bytes_debug"
@@ -31,13 +39,6 @@ line_spacing = 4
 cut = true
 
 [[publication_slots]]
-slot_id = "morning"
-name = "Morning"
-publish_time = "07:00"
-is_enabled = true
-recurrence_rule = "daily"
-
-[[publication_slots]]
 slot_id = "noon"
 name = "Noon"
 publish_time = "12:00"
@@ -48,14 +49,6 @@ recurrence_rule = "daily"
 app_id = "lunch"
 name = "Lunch"
 target_publication_slot_id = "noon"
-scene_note = "多吃蔬菜，不要喝可乐"
-checklist_items = ["吃得健康", "力量训练", "21:00 结束工作"]
-is_enabled = true
-
-[[scene_apps]]
-app_id = "afternoon_reset"
-name = "Afternoon Reset"
-target_publication_slot_id = "noon"
-scene_note = ""
-checklist_items = ["喝水", "站起来活动 5 分钟"]
+scene_note = "Eat well"
+checklist_items = ["Vegetables", "Train", "Stop at 21:00"]
 is_enabled = true

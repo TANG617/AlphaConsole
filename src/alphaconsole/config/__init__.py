@@ -7,10 +7,12 @@ from .compiler import (
 )
 from .loader import load_runtime_config
 from .models import (
+    ConfiguredPrinterTarget,
     ConfiguredPublicationSlot,
     ConfiguredSceneApp,
     DeliveryConfig,
     DeliveryFileConfig,
+    PrintingConfig,
     RenderingConfig,
     RuntimeOptionsConfig,
     RuntimeConfig,
@@ -19,10 +21,12 @@ from .models import (
 
 __all__ = [
     "CompiledRuntimeConfig",
+    "ConfiguredPrinterTarget",
     "ConfiguredPublicationSlot",
     "ConfiguredSceneApp",
     "DeliveryConfig",
     "DeliveryFileConfig",
+    "PrintingConfig",
     "RenderingConfig",
     "RuntimeOptionsConfig",
     "RuntimeConfig",

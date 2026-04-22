@@ -318,6 +318,83 @@ class IssueAssembler:
 4. 定时组刊可以合并多个 Block
 5. 过期 Block 会被剔除
 6. 即时触发会生成独立一期
+
+## 16. Printer / Device Boundary
+当前阶段允许进入 printer/device boundary，但这些对象不属于 domain。
+
+### 16.1 PrinterTargetConfig
+- 作用：
+  - 表示一个 operator-facing 的打印目标配置
+- 当前阶段支持的 kind：
+  - `stdout`
+  - `file`
+  - `memory`
+  - `escpos_socket`
+  - `escpos_bytes_file`
+- 约束：
+  - 它属于 config/runtime/printing boundary
+  - 不要把它塞进 `Issue`、`Block` 或 `ContentApp`
+
+### 16.2 HardwarePrintOptions
+- 作用：
+  - 表示硬件打印阶段的附加选项
+- 当前阶段建议包含：
+  - `mode`
+  - `font_path`
+  - `font_size`
+  - `line_spacing`
+  - `cut`
+- 约束：
+  - 当前阶段 `mode` 只允许 `raster`
+  - blank `font_path` 可归一化为 `None`
+
+### 16.3 RasterizedReceipt
+- 作用：
+  - 表示 `RenderedReceipt` 已经被光栅化后的中间结果
+- 约束：
+  - 它不属于 domain
+  - 当前阶段只要求单色 receipt image
+  - 不做分页、裁切、二维码或图片优化
+
+### 16.4 EscPosPayload
+- 作用：
+  - 表示已经编码完成、可发送到 ESC/POS 兼容目标的 bytes
+- 约束：
+  - 当前阶段只要求最小 raster payload
+  - 不做 capability negotiation
+  - 不做 text-mode code page 打印
+
+### 16.5 EscPosSocketPrinterAdapter
+- 作用：
+  - 通过 TCP socket 把 ESC/POS bytes 发送到单台真实打印机
+- 约束：
+  - 当前阶段只支持 `host` + `port`
+  - 使用 socket 发送 bytes
+  - 异常直接 bubble up
+  - 不做 retry / recovery
+
+### 16.6 EscPosBytesFileAdapter
+- 作用：
+  - 把 ESC/POS bytes 写到 `.bin` 文件，作为 raw bytes debug adapter
+- 约束：
+  - 自动创建目录
+  - 同名文件直接覆盖
+  - 不定义 reprint 语义
+
+### 16.7 当前阶段的打印链路
+当前阶段允许的最小真实打印链路为：
+
+`Issue -> RenderedReceipt -> RasterizedReceipt -> EscPosPayload -> PrinterAdapter`
+
+约束：
+- `PrintService` 仍然只负责：
+  - `Issue -> RenderedReceipt`
+  - `RenderedReceipt -> PrinterAdapter`
+- 真实硬件 adapter 可以在 `deliver(receipt)` 内部完成：
+  - text -> image
+  - image -> ESC/POS bytes
+  - bytes -> transport
+- 不把硬件字节流与设备配置回写到 domain
 7. 一个 App 在一次 Issue 中只发布一个 Block
 
 ## 16. Printing / application boundary

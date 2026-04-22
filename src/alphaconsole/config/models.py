@@ -32,6 +32,11 @@ class DeliveryConfig:
 
 
 @dataclass(slots=True, frozen=True)
+class PrintingConfig:
+    default_target: str | None = None
+
+
+@dataclass(slots=True, frozen=True)
 class ConfiguredPublicationSlot:
     slot_id: str
     name: str
@@ -55,10 +60,28 @@ class ConfiguredSceneApp:
 
 
 @dataclass(slots=True, frozen=True)
+class ConfiguredPrinterTarget:
+    target_id: str
+    kind: str
+    profile: str | None = None
+    mode: str | None = None
+    font_path: str | None = None
+    font_size: int = 18
+    line_spacing: int = 4
+    cut: bool = True
+    host: str | None = None
+    port: int | None = None
+    timeout_seconds: float = 5.0
+    output_dir: str | None = None
+
+
+@dataclass(slots=True, frozen=True)
 class RuntimeConfig:
     source_path: Path
     rendering: RenderingConfig
     runtime: RuntimeOptionsConfig
     delivery: DeliveryConfig
+    printing: PrintingConfig
     publication_slots: tuple[ConfiguredPublicationSlot, ...]
     scene_apps: tuple[ConfiguredSceneApp, ...]
+    printer_targets: tuple[ConfiguredPrinterTarget, ...]

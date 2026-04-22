@@ -1,19 +1,19 @@
 # AlphaConsole Manual Runtime（当前阶段）
 ## 1. 目标
-当前阶段提供的是一个 operator-facing 的 dry-run runtime。  
-它允许通过 CLI 手动加载配置、预览 issue，并走完整的 dry-run publication 链路。
+当前阶段提供的是一个 operator-facing 的 local runtime。  
+它允许通过 CLI 手动加载配置、预览 issue，并走完整的 dry-run 或 single-printer hardware publication 链路。
 
-## 2. 当前阶段只做 dry-run
+## 2. 当前阶段能力边界
 当前阶段可以：
 - 从 TOML 加载 publication slots 与 scene apps
 - preview scheduled issue
 - publish scheduled issue
 - publish immediate issue
 - 通过新增的 automated runtime commands 触发本地自动出刊
+- 通过 printer target 执行真实或 dry-run delivery
 
 当前阶段明确不做：
-- ESC/POS
-- 真实打印机硬件接入
+- USB / CUPS / 蓝牙打印
 - 历史存储
 - 失败恢复
 - scheduler daemon / service manager / cron integration
@@ -47,11 +47,34 @@ uv run python -m alphaconsole.cli publish scheduled --config examples/basic.toml
 uv run python -m alphaconsole.cli publish immediate --config examples/basic.toml --app-id lunch
 ```
 
+### 3.5 targets list
+列出配置中的 printer targets：
+
+```bash
+uv run python -m alphaconsole.cli targets list --config examples/basic.toml
+```
+
+### 3.6 print test-page
+向选定 target 发送一张最小测试页：
+
+```bash
+uv run python -m alphaconsole.cli print test-page --config examples/basic.toml --target-id bytes_debug
+```
+
+### 3.7 runtime once / runtime loop with target
+自动出刊命令仍然保留，并可通过 `--target-id` 选择打印目标：
+
+```bash
+uv run python -m alphaconsole.cli runtime once --config examples/basic.toml --state var/state.db --target-id bytes_debug
+uv run python -m alphaconsole.cli runtime loop --config examples/basic.toml --state var/state.db --target-id receipt_printer
+```
+
 ## 4. 常用参数
 当前阶段建议支持：
 - `--config`
 - `--profile`
 - `--adapter`
+- `--target-id`
 - `--output-dir`
 - `--now`
 - `--sequence-of-day`
@@ -59,10 +82,11 @@ uv run python -m alphaconsole.cli publish immediate --config examples/basic.toml
 说明：
 - `--profile` 可覆盖配置中的默认 profile
 - `--adapter` 可覆盖配置中的默认 adapter
+- `--target-id` 可覆盖配置中的默认 printer target
 - `--output-dir` 主要用于 `file` adapter
 - `--now` 与 `--sequence-of-day` 用于测试和可重复运行
 
 ## 5. 当前阶段的边界
 manual runtime 只是一个同步可调用的 operator flow。  
-它不是 printer hardware runtime。
+它已经可以通过 target 进入第一条 printer hardware delivery 链路，但当前阶段仍然不是多打印机或可靠性 runtime。
 manual commands 仍然保留，同时 automated runtime commands 是新增的 operator entrypoints。
