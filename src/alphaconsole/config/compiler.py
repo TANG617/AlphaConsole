@@ -11,6 +11,12 @@ from alphaconsole.domain import (
     SceneApp,
     TriggerMode,
 )
+from alphaconsole.printing import (
+    HardwarePrintOptions,
+    PrinterTargetConfig,
+    normalize_hardware_print_mode,
+    normalize_printer_target_kind,
+)
 from alphaconsole.rendering import RECEIPT_32, RECEIPT_42, RenderProfile
 
 from .models import RuntimeConfig, RuntimeConfigError
@@ -28,8 +34,10 @@ _SUPPORTED_ADAPTER_KINDS = {"stdout", "file", "memory"}
 class CompiledRuntimeConfig:
     slots_by_id: dict[str, PublicationSlot]
     apps_by_id: dict[str, ContentApp]
+    printer_targets_by_id: dict[str, PrinterTargetConfig]
     default_profile: RenderProfile
     default_adapter_kind: str
+    default_printer_target_id: str | None
     file_output_dir: Path | None
     runtime_catchup_seconds: int
     runtime_poll_interval_seconds: float
@@ -65,6 +73,20 @@ def compile_runtime_config(
     if default_adapter_kind == "file" and file_output_dir is None:
         raise RuntimeConfigError(
             "delivery.file.output_dir is required when default_adapter is 'file'."
+        )
+
+    printer_targets_by_id = _compile_printer_targets(
+        config,
+        base_dir=config.source_path.parent,
+    )
+    default_printer_target_id = config.printing.default_target
+    if (
+        default_printer_target_id is not None
+        and default_printer_target_id not in printer_targets_by_id
+    ):
+        raise RuntimeConfigError(
+            "printing.default_target references unknown target "
+            f"{default_printer_target_id!r}."
         )
 
     slots_by_id: dict[str, PublicationSlot] = {}
@@ -125,8 +147,10 @@ def compile_runtime_config(
     return CompiledRuntimeConfig(
         slots_by_id=slots_by_id,
         apps_by_id=apps_by_id,
+        printer_targets_by_id=printer_targets_by_id,
         default_profile=default_profile,
         default_adapter_kind=default_adapter_kind,
+        default_printer_target_id=default_printer_target_id,
         file_output_dir=file_output_dir,
         runtime_catchup_seconds=config.runtime.catchup_seconds,
         runtime_poll_interval_seconds=config.runtime.poll_interval_seconds,
@@ -153,3 +177,87 @@ def _resolve_output_dir(value: str | None, *, base_dir: Path) -> Path | None:
     if not path.is_absolute():
         path = base_dir / path
     return path
+
+
+def _resolve_optional_path(value: str | None, *, base_dir: Path) -> Path | None:
+    if value is None:
+        return None
+
+    path = Path(value)
+    if not path.is_absolute():
+        path = base_dir / path
+    return path
+
+
+def _compile_printer_targets(
+    config: RuntimeConfig,
+    *,
+    base_dir: Path,
+) -> dict[str, PrinterTargetConfig]:
+    printer_targets_by_id: dict[str, PrinterTargetConfig] = {}
+    for configured_target in config.printer_targets:
+        if configured_target.target_id in printer_targets_by_id:
+            raise RuntimeConfigError(
+                f"Duplicate printer target id: {configured_target.target_id!r}."
+            )
+
+        kind = _normalize_target_kind(configured_target.kind)
+        profile_name = (
+            resolve_render_profile(configured_target.profile).name
+            if configured_target.profile is not None
+            else None
+        )
+        mode = _normalize_target_mode(configured_target.mode)
+        output_dir = _resolve_output_dir(configured_target.output_dir, base_dir=base_dir)
+        font_path = _resolve_optional_path(configured_target.font_path, base_dir=base_dir)
+
+        if kind == "escpos_socket":
+            if configured_target.host is None:
+                raise RuntimeConfigError(
+                    "printer target "
+                    f"{configured_target.target_id!r} requires host for escpos_socket."
+                )
+            if configured_target.port is None:
+                raise RuntimeConfigError(
+                    "printer target "
+                    f"{configured_target.target_id!r} requires port for escpos_socket."
+                )
+        if kind in {"file", "escpos_bytes_file"} and output_dir is None:
+            raise RuntimeConfigError(
+                "printer target "
+                f"{configured_target.target_id!r} requires output_dir for {kind}."
+            )
+
+        printer_targets_by_id[configured_target.target_id] = PrinterTargetConfig(
+            target_id=configured_target.target_id,
+            kind=kind,
+            profile_name=profile_name,
+            hardware_options=HardwarePrintOptions(
+                mode=mode,
+                font_path=font_path,
+                font_size=configured_target.font_size,
+                line_spacing=configured_target.line_spacing,
+                cut=configured_target.cut,
+            ),
+            host=configured_target.host,
+            port=configured_target.port,
+            timeout_seconds=configured_target.timeout_seconds,
+            output_dir=output_dir,
+        )
+
+    return printer_targets_by_id
+
+
+def _normalize_target_kind(kind: str) -> str:
+    try:
+        return normalize_printer_target_kind(kind)
+    except ValueError as exc:
+        raise RuntimeConfigError(str(exc)) from exc
+
+
+def _normalize_target_mode(mode: str | None) -> str:
+    normalized_mode = mode or "raster"
+    try:
+        return normalize_hardware_print_mode(normalized_mode)
+    except ValueError as exc:
+        raise RuntimeConfigError(str(exc)) from exc

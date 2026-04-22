@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from alphaconsole.application import PublicationService
-from alphaconsole.printing import FilePrinterAdapter
+from alphaconsole.printing import FilePrinterAdapter, PrinterTargetConfig
 from alphaconsole.runtime import RuntimeBundle, build_runtime_from_config
 
 
@@ -18,6 +18,9 @@ def test_build_runtime_from_config_returns_runtime_bundle() -> None:
     assert "lunch" in bundle.apps_by_id
     assert bundle.default_profile.name == "receipt_42"
     assert bundle.default_adapter_kind == "stdout"
+    assert bundle.default_printer_target_id == "stdout_default"
+    assert "bytes_debug" in bundle.printer_targets_by_id
+    assert isinstance(bundle.printer_targets_by_id["bytes_debug"], PrinterTargetConfig)
     assert bundle.runtime_catchup_seconds == 60
     assert bundle.runtime_poll_interval_seconds == 30.0
     assert bundle.file_output_dir == Path("examples/var/out")

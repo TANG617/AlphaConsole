@@ -7,6 +7,7 @@ import sys
 
 from alphaconsole.application import AutomationRuntimeService
 from alphaconsole.config import RuntimeConfigError, resolve_render_profile
+from alphaconsole.printing.test_page import build_test_receipt
 from alphaconsole.rendering import render_issue
 from alphaconsole.runtime import RuntimeBundle, build_runtime_from_config
 from alphaconsole.state import SQLiteStateStore
@@ -34,6 +35,25 @@ def _build_parser() -> argparse.ArgumentParser:
     list_parser = subparsers.add_parser("list")
     _add_config_argument(list_parser)
     list_parser.set_defaults(handler=_handle_list)
+
+    targets_parser = subparsers.add_parser("targets")
+    targets_subparsers = targets_parser.add_subparsers(
+        dest="targets_command", required=True
+    )
+    targets_list = targets_subparsers.add_parser("list")
+    _add_config_argument(targets_list)
+    targets_list.set_defaults(handler=_handle_targets_list)
+
+    print_parser = subparsers.add_parser("print")
+    print_subparsers = print_parser.add_subparsers(
+        dest="print_command", required=True
+    )
+    test_page = print_subparsers.add_parser("test-page")
+    _add_config_argument(test_page)
+    test_page.add_argument("--profile")
+    test_page.add_argument("--target-id")
+    test_page.add_argument("--output-dir", type=Path)
+    test_page.set_defaults(handler=_handle_print_test_page)
 
     preview_parser = subparsers.add_parser("preview")
     preview_subparsers = preview_parser.add_subparsers(
@@ -116,6 +136,7 @@ def _add_runtime_arguments(
     parser.add_argument("--profile")
     if include_adapter:
         parser.add_argument("--adapter")
+        parser.add_argument("--target-id")
         parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--now", type=_parse_datetime)
     parser.add_argument("--sequence-of-day", type=int, default=1)
@@ -124,6 +145,7 @@ def _add_runtime_arguments(
 def _add_runtime_override_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--profile")
     parser.add_argument("--adapter")
+    parser.add_argument("--target-id")
     parser.add_argument("--output-dir", type=Path)
 
 
@@ -145,6 +167,35 @@ def _handle_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_targets_list(args: argparse.Namespace) -> int:
+    bundle = build_runtime_from_config(args.config)
+    if not bundle.printer_targets_by_id:
+        print("No printer targets configured.")
+        return 0
+
+    default_target_id = bundle.default_printer_target_id
+    for target in bundle.printer_targets_by_id.values():
+        marker = " (default)" if target.target_id == default_target_id else ""
+        profile_name = target.profile_name or bundle.default_profile.name
+        print(
+            f"- {target.target_id}: {target.kind} profile={profile_name}{marker}"
+        )
+    return 0
+
+
+def _handle_print_test_page(args: argparse.Namespace) -> int:
+    bundle = build_runtime_from_config(args.config)
+    adapter, target = _resolve_delivery(
+        bundle,
+        args.target_id,
+        override_kind=None,
+        output_dir=args.output_dir,
+    )
+    profile = _resolve_profile(bundle, args.profile, target=target)
+    adapter.deliver(build_test_receipt(profile))
+    return 0
+
+
 def _handle_preview_scheduled(args: argparse.Namespace) -> int:
     bundle = build_runtime_from_config(args.config)
     slot = _require_slot(bundle, args.slot_id)
@@ -162,8 +213,13 @@ def _handle_preview_scheduled(args: argparse.Namespace) -> int:
 def _handle_publish_scheduled(args: argparse.Namespace) -> int:
     bundle = build_runtime_from_config(args.config)
     slot = _require_slot(bundle, args.slot_id)
-    profile = _resolve_profile(bundle, args.profile)
-    adapter = _resolve_adapter(bundle, args.adapter, args.output_dir)
+    adapter, target = _resolve_delivery(
+        bundle,
+        args.target_id,
+        override_kind=args.adapter,
+        output_dir=args.output_dir,
+    )
+    profile = _resolve_profile(bundle, args.profile, target=target)
     bundle.publication_service.publish_scheduled(
         slot=slot,
         apps=tuple(bundle.apps_by_id.values()),
@@ -178,8 +234,13 @@ def _handle_publish_scheduled(args: argparse.Namespace) -> int:
 def _handle_publish_immediate(args: argparse.Namespace) -> int:
     bundle = build_runtime_from_config(args.config)
     app = _require_app(bundle, args.app_id)
-    profile = _resolve_profile(bundle, args.profile)
-    adapter = _resolve_adapter(bundle, args.adapter, args.output_dir)
+    adapter, target = _resolve_delivery(
+        bundle,
+        args.target_id,
+        override_kind=args.adapter,
+        output_dir=args.output_dir,
+    )
+    profile = _resolve_profile(bundle, args.profile, target=target)
     bundle.publication_service.publish_immediate(
         app=app,
         adapter=adapter,
@@ -193,7 +254,12 @@ def _handle_publish_immediate(args: argparse.Namespace) -> int:
 def _handle_runtime_once(args: argparse.Namespace) -> int:
     bundle = build_runtime_from_config(args.config)
     service = _build_automation_runtime_service(bundle)
-    adapter = _resolve_adapter(bundle, args.adapter, args.output_dir)
+    adapter, target = _resolve_delivery(
+        bundle,
+        args.target_id,
+        override_kind=args.adapter,
+        output_dir=args.output_dir,
+    )
     store = _open_state_store(args.state)
     result = service.run_once(
         slots=tuple(bundle.slots_by_id.values()),
@@ -201,7 +267,7 @@ def _handle_runtime_once(args: argparse.Namespace) -> int:
         adapter=adapter,
         store=store,
         now=_resolve_now(args.now),
-        profile=_resolve_profile(bundle, args.profile),
+        profile=_resolve_profile(bundle, args.profile, target=target),
         catchup_seconds=_resolve_catchup_seconds(bundle, args.catchup_seconds),
     )
     _print_runtime_tick_summary(result)
@@ -211,7 +277,12 @@ def _handle_runtime_once(args: argparse.Namespace) -> int:
 def _handle_runtime_loop(args: argparse.Namespace) -> int:
     bundle = build_runtime_from_config(args.config)
     service = _build_automation_runtime_service(bundle)
-    adapter = _resolve_adapter(bundle, args.adapter, args.output_dir)
+    adapter, target = _resolve_delivery(
+        bundle,
+        args.target_id,
+        override_kind=args.adapter,
+        output_dir=args.output_dir,
+    )
     store = _open_state_store(args.state)
     poll_interval = _resolve_poll_interval_seconds(bundle, args.poll_interval)
     service.run_loop(
@@ -219,7 +290,7 @@ def _handle_runtime_loop(args: argparse.Namespace) -> int:
         apps=tuple(bundle.apps_by_id.values()),
         adapter=adapter,
         store=store,
-        profile=_resolve_profile(bundle, args.profile),
+        profile=_resolve_profile(bundle, args.profile, target=target),
         poll_interval_seconds=poll_interval,
         catchup_seconds=_resolve_catchup_seconds(bundle, args.catchup_seconds),
         iterations=args.iterations,
@@ -253,19 +324,45 @@ def _handle_runs_latest(args: argparse.Namespace) -> int:
     return 0
 
 
-def _resolve_profile(bundle: RuntimeBundle, override: str | None):
+def _resolve_profile(bundle: RuntimeBundle, override: str | None, *, target=None):
     if override is None:
+        if target is not None and target.profile_name is not None:
+            return resolve_render_profile(target.profile_name)
         return bundle.default_profile
     return resolve_render_profile(override)
 
 
-def _resolve_adapter(
+def _resolve_delivery(
     bundle: RuntimeBundle,
+    target_id: str | None,
+    *,
     override_kind: str | None,
     output_dir: Path | None,
 ):
-    kind = override_kind or bundle.default_adapter_kind
-    return bundle.adapter_factory.create(kind, output_dir=output_dir)
+    if target_id is not None:
+        target = _require_target(bundle, target_id)
+        return bundle.adapter_factory.create_for_target(
+            target,
+            output_dir=output_dir,
+        ), target
+
+    if override_kind is not None:
+        return bundle.adapter_factory.create(
+            override_kind,
+            output_dir=output_dir,
+        ), None
+
+    if bundle.default_printer_target_id is not None:
+        target = _require_target(bundle, bundle.default_printer_target_id)
+        return bundle.adapter_factory.create_for_target(
+            target,
+            output_dir=output_dir,
+        ), target
+
+    return bundle.adapter_factory.create(
+        bundle.default_adapter_kind,
+        output_dir=output_dir,
+    ), None
 
 
 def _resolve_catchup_seconds(bundle: RuntimeBundle, override: int | None) -> int:
@@ -295,6 +392,13 @@ def _require_app(bundle: RuntimeBundle, app_id: str):
         return bundle.apps_by_id[app_id]
     except KeyError as exc:
         raise RuntimeConfigError(f"Unknown app_id: {app_id!r}.") from exc
+
+
+def _require_target(bundle: RuntimeBundle, target_id: str):
+    try:
+        return bundle.printer_targets_by_id[target_id]
+    except KeyError as exc:
+        raise RuntimeConfigError(f"Unknown target_id: {target_id!r}.") from exc
 
 
 def _parse_datetime(value: str) -> datetime:

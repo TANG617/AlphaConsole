@@ -32,6 +32,12 @@
 
 ### 3.4 delivery_attempts
 保存每次 delivery 尝试。
+当前阶段既可能记录 dry-run adapters，也可能记录真实硬件路径：
+- `stdout`
+- `file`
+- `memory`
+- `escpos_socket`
+- `escpos_bytes_file`
 
 ## 4. 技术约束
 - 使用 stdlib `sqlite3`
@@ -47,3 +53,4 @@
 - 历史查询 UI
 - retry / recovery
 - reprint
+- 设备能力探测

@@ -6,10 +6,12 @@ from datetime import time
 import tomllib
 
 from .models import (
+    ConfiguredPrinterTarget,
     ConfiguredPublicationSlot,
     ConfiguredSceneApp,
     DeliveryConfig,
     DeliveryFileConfig,
+    PrintingConfig,
     RenderingConfig,
     RuntimeOptionsConfig,
     RuntimeConfig,
@@ -30,8 +32,10 @@ def load_runtime_config(path: Path) -> RuntimeConfig:
     runtime_data = _optional_table(data, "runtime")
     delivery_data = _optional_table(data, "delivery")
     delivery_file_data = _optional_table(delivery_data, "file")
+    printing_data = _optional_table(data, "printing")
     publication_slots = _optional_array_of_tables(data, "publication_slots")
     scene_apps = _optional_array_of_tables(data, "scene_apps")
+    printer_targets = _optional_array_of_tables(data, "printer_targets")
 
     rendering = RenderingConfig(
         default_profile=_defaulted_non_blank_string(
@@ -76,12 +80,20 @@ def load_runtime_config(path: Path) -> RuntimeConfig:
             ),
         ),
     )
+    printing = PrintingConfig(
+        default_target=_optional_non_blank_string(
+            printing_data,
+            "default_target",
+            context="printing.default_target",
+        )
+    )
 
     return RuntimeConfig(
         source_path=path,
         rendering=rendering,
         runtime=runtime,
         delivery=delivery,
+        printing=printing,
         publication_slots=tuple(
             _parse_publication_slot(item, index)
             for index, item in enumerate(publication_slots, start=1)
@@ -89,6 +101,10 @@ def load_runtime_config(path: Path) -> RuntimeConfig:
         scene_apps=tuple(
             _parse_scene_app(item, index)
             for index, item in enumerate(scene_apps, start=1)
+        ),
+        printer_targets=tuple(
+            _parse_printer_target(item, index)
+            for index, item in enumerate(printer_targets, start=1)
         ),
     )
 
@@ -145,6 +161,45 @@ def _parse_scene_app(data: Mapping[str, object], index: int) -> ConfiguredSceneA
             data,
             "recurrence_rule",
             context=f"{context}.recurrence_rule",
+        ),
+    )
+
+
+def _parse_printer_target(
+    data: Mapping[str, object], index: int
+) -> ConfiguredPrinterTarget:
+    context = f"printer_targets[{index}]"
+    return ConfiguredPrinterTarget(
+        target_id=_required_string(data, "target_id", context=context),
+        kind=_required_string(data, "kind", context=context),
+        profile=_optional_non_blank_string(data, "profile", context=f"{context}.profile"),
+        mode=_optional_non_blank_string(data, "mode", context=f"{context}.mode"),
+        font_path=_optional_string(data, "font_path", context=f"{context}.font_path"),
+        font_size=_defaulted_positive_int(
+            data,
+            "font_size",
+            context=f"{context}.font_size",
+            default=18,
+        ),
+        line_spacing=_defaulted_non_negative_int(
+            data,
+            "line_spacing",
+            context=f"{context}.line_spacing",
+            default=4,
+        ),
+        cut=_defaulted_bool(data, "cut", context=f"{context}.cut", default=True),
+        host=_optional_non_blank_string(data, "host", context=f"{context}.host"),
+        port=_optional_positive_int(data, "port", context=f"{context}.port"),
+        timeout_seconds=_defaulted_positive_float(
+            data,
+            "timeout_seconds",
+            context=f"{context}.timeout_seconds",
+            default=5.0,
+        ),
+        output_dir=_optional_non_blank_string(
+            data,
+            "output_dir",
+            context=f"{context}.output_dir",
         ),
     )
 
@@ -237,6 +292,24 @@ def _defaulted_positive_float(
     return numeric_value
 
 
+def _defaulted_positive_int(
+    data: Mapping[str, object],
+    key: str,
+    *,
+    context: str,
+    default: int,
+) -> int:
+    if key not in data:
+        return default
+
+    value = data[key]
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise RuntimeConfigError(f"{context} must be a positive integer.")
+    if value <= 0:
+        raise RuntimeConfigError(f"{context} must be a positive integer.")
+    return value
+
+
 def _optional_string(
     data: Mapping[str, object],
     key: str,
@@ -251,6 +324,60 @@ def _optional_string(
         raise RuntimeConfigError(f"{context} must be a string.")
     normalized = value.strip()
     return normalized or None
+
+
+def _optional_non_blank_string(
+    data: Mapping[str, object],
+    key: str,
+    *,
+    context: str,
+) -> str | None:
+    if key not in data:
+        return None
+
+    value = data[key]
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise RuntimeConfigError(f"{context} must be a non-empty string.")
+
+    normalized = value.strip()
+    if not normalized:
+        raise RuntimeConfigError(f"{context} must be a non-empty string.")
+    return normalized
+
+
+def _optional_positive_int(
+    data: Mapping[str, object],
+    key: str,
+    *,
+    context: str,
+) -> int | None:
+    if key not in data:
+        return None
+
+    value = data[key]
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise RuntimeConfigError(f"{context} must be a positive integer.")
+    if value <= 0:
+        raise RuntimeConfigError(f"{context} must be a positive integer.")
+    return value
+
+
+def _defaulted_bool(
+    data: Mapping[str, object],
+    key: str,
+    *,
+    context: str,
+    default: bool,
+) -> bool:
+    if key not in data:
+        return default
+
+    value = data[key]
+    if not isinstance(value, bool):
+        raise RuntimeConfigError(f"{context} must be a boolean.")
+    return value
 
 
 def _required_bool(data: Mapping[str, object], key: str, *, context: str) -> bool:

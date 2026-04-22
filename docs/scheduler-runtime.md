@@ -1,7 +1,7 @@
 # AlphaConsole Scheduler Runtime（当前阶段）
 ## 1. 目标
 当前阶段引入的是一个本地、同步、轮询式 scheduler runtime。  
-它的目标是在不接真实打印机的前提下，让系统能够自动 dry-run 出刊。
+它的目标是在保持本地与保守语义的前提下，让系统能够自动出刊并交付到 dry-run 或单台真实 printer target。
 
 ## 2. 当前只支持每日固定时点
 当前自动化 runtime 对 `PublicationSlot` 的解释固定为：
@@ -39,6 +39,7 @@
 - 不做 daemon
 - 不做 service manager
 - 不做 cron integration
+- 可把 due issue 交给默认 target 或 `--target-id` 指定 target
 
 ## 5. 失败语义
 当前阶段 delivery failure 的语义固定为：
@@ -52,3 +53,10 @@
 ## 6. dedupe 语义
 当前阶段 scheduled occurrence 通过 `(slot_id, occurrence_at)` 去重。  
 如果某次 scheduled occurrence 已经在 ledger 中出现，则后续 tick 不应再次自动发布。
+
+## 7. 当前阶段不做
+- daemon / service manager
+- 历史 backfill
+- retry / recovery
+- 多打印机编排
+- printer discovery
