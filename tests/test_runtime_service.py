@@ -220,3 +220,30 @@ def test_run_once_does_not_mutate_issue_printed_at(tmp_path: Path) -> None:
 
     assert assembler.last_issue is not None
     assert assembler.last_issue.printed_at is None
+
+
+def test_run_once_first_tick_catches_cross_midnight_occurrence(tmp_path: Path) -> None:
+    service = AutomationRuntimeService()
+    store = SQLiteStateStore(tmp_path / "state.db")
+    adapter = MemoryPrinterAdapter()
+    slot = make_slot(slot_id="late-night", publish_time=time(23, 59, 45))
+    app = make_scene_app(app_id="late-night-app", slot_id="late-night")
+
+    result = service.run_once(
+        slots=[slot],
+        apps=[app],
+        adapter=adapter,
+        store=store,
+        now=datetime(2026, 4, 23, 0, 0, 30),
+        profile=RECEIPT_42,
+        catchup_seconds=60,
+    )
+
+    runs = store.list_publication_runs(limit=10)
+
+    assert len(result.due_occurrences) == 1
+    assert result.due_occurrences[0].occurrence_at == datetime(2026, 4, 22, 23, 59, 45)
+    assert len(result.published_issue_ids) == 1
+    assert len(adapter.receipts) == 1
+    assert len(runs) == 1
+    assert runs[0].occurrence_at == datetime(2026, 4, 22, 23, 59, 45)

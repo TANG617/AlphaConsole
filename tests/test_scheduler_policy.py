@@ -72,3 +72,25 @@ def test_compute_due_occurrences_sorts_by_occurrence_at_then_slot_id() -> None:
     )
 
     assert [occ.slot_id for occ in due] == ["earlier", "a-slot", "b-slot"]
+
+
+def test_compute_due_occurrences_includes_cross_midnight_previous_day_occurrence() -> None:
+    due = compute_due_occurrences(
+        slots=[make_slot(slot_id="late-night", publish_time=time(23, 59, 45))],
+        window_start=datetime(2026, 4, 22, 23, 59, 30),
+        window_end=datetime(2026, 4, 23, 0, 0, 30),
+    )
+
+    assert [(occ.slot_id, occ.occurrence_at.isoformat()) for occ in due] == [
+        ("late-night", "2026-04-22T23:59:45")
+    ]
+
+
+def test_compute_due_occurrences_does_not_create_cross_midnight_false_positive() -> None:
+    due = compute_due_occurrences(
+        slots=[make_slot(slot_id="after-midnight", publish_time=time(0, 1, 0))],
+        window_start=datetime(2026, 4, 22, 23, 59, 30),
+        window_end=datetime(2026, 4, 23, 0, 0, 30),
+    )
+
+    assert due == []
