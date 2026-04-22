@@ -18,6 +18,9 @@ def test_build_runtime_from_config_returns_runtime_bundle() -> None:
     assert "lunch" in bundle.apps_by_id
     assert bundle.default_profile.name == "receipt_42"
     assert bundle.default_adapter_kind == "stdout"
+    assert bundle.runtime_catchup_seconds == 60
+    assert bundle.runtime_poll_interval_seconds == 30.0
+    assert bundle.file_output_dir == Path("examples/var/out")
 
 
 def test_build_runtime_from_config_resolves_default_file_output_dir(
@@ -28,6 +31,8 @@ def test_build_runtime_from_config_resolves_default_file_output_dir(
         """
 [delivery]
 default_adapter = "file"
+
+[delivery.file]
 output_dir = "receipts"
 
 [[publication_slots]]

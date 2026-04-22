@@ -5,7 +5,7 @@
 
 ## 2. 总约束
 1. 文档语义优先于代码便利性。
-2. 当前只允许构建域模型、组刊器、width-aware rendering、dry-run print boundary、publication runtime 与 manual runtime，不要实现外围系统。
+2. 当前只允许构建域模型、组刊器、width-aware rendering、dry-run print boundary、publication runtime、manual runtime 与 local automation runtime，不要实现外围系统。
 3. 不要创建一个单独的 `Scene` 类来混合配置与快照语义。
 4. 代码中使用 `ContentApp` 代表产品概念中的 App。
 5. 一个 `ContentApp` 在一次 `Issue` 中最多返回一个 `Block`。
@@ -549,3 +549,148 @@ class RuntimeBundle:
 2. CLI 只做 manual dry-run 操作，不做 scheduler / daemon
 3. CLI 不负责扩张产品语义
 4. CLI 可以覆盖 profile / adapter / now / sequence_of_day 等运行参数
+
+## 29. State / runtime boundary
+当前阶段允许建立一个本地 state/runtime boundary，用于把声明式配置之外的运行态状态保存在 SQLite 中，并驱动自动化 tick。
+这些对象属于 runtime / application / state boundary，而不是 domain。
+
+说明：
+- 允许在这一层保存 publication runs、delivery attempts、checkpoint 与 daily sequence allocator
+- 不允许把 runtime state 对象混入 `Issue` / `Block` / `ContentApp`
+- 不允许把 declaration config 写回 SQLite，也不允许把 runtime state 写回 TOML
+
+## 30. PublicationRunRecord
+建议定义 `PublicationRunRecord`：
+
+```python
+@dataclass(slots=True)
+class PublicationRunRecord:
+    issue_id: str
+    slot_id: str | None
+    occurrence_at: datetime | None
+    trigger_mode: str
+    sequence_of_day: int
+    profile_name: str
+    adapter_name: str
+    status: str
+    created_at: datetime
+    delivered_at: datetime | None
+```
+
+约束：
+1. `PublicationRunRecord` 是 runtime ledger 对象，不是 domain 对象
+2. 当前阶段只要求最小状态：
+   - `assembled`
+   - `delivered`
+   - `delivery_failed`
+3. 当前阶段不要扩张为复杂状态机
+
+## 31. DeliveryAttemptRecord
+建议定义 `DeliveryAttemptRecord`：
+
+```python
+@dataclass(slots=True)
+class DeliveryAttemptRecord:
+    attempt_id: str
+    issue_id: str
+    adapter_name: str
+    attempted_at: datetime
+    succeeded: bool
+    error_text: str | None
+```
+
+约束：
+1. `DeliveryAttemptRecord` 是 delivery ledger 对象，不是 domain 对象
+2. 当前阶段每次 delivery 尝试最多记录一条 attempt
+3. 当前阶段不引入 retry / recovery 语义
+
+## 32. RuntimeCheckpoint
+当前阶段允许定义一个最小 `RuntimeCheckpoint`，用于表达 runtime checkpoint，例如 `last_tick_at`。
+
+约束：
+1. 它属于 runtime state boundary
+2. 当前阶段只需要最小 checkpoint 能力
+3. 不要扩张为复杂 scheduler state machine
+
+## 33. ScheduledOccurrence
+建议定义 `ScheduledOccurrence`：
+
+```python
+@dataclass(slots=True, frozen=True)
+class ScheduledOccurrence:
+    slot_id: str
+    occurrence_at: datetime
+```
+
+约束：
+1. `ScheduledOccurrence` 是 scheduler/runtime 对象，不是 domain 对象
+2. 当前阶段只表达“某个 slot 在某个时点的一次 occurrence”
+3. 当前阶段只支持每日固定时点，不做复杂 recurrence engine
+
+## 34. RuntimeTickResult
+建议定义 `RuntimeTickResult`：
+
+```python
+@dataclass(slots=True)
+class RuntimeTickResult:
+    ticked_at: datetime
+    window_start: datetime
+    window_end: datetime
+    due_occurrences: tuple[ScheduledOccurrence, ...]
+    published_issue_ids: tuple[str, ...]
+    skipped_existing_occurrences: tuple[ScheduledOccurrence, ...]
+```
+
+约束：
+1. `RuntimeTickResult` 是 application/runtime boundary 对象
+2. 它只表达一次 scheduler tick 的结果
+3. 当前阶段不要在这里引入重试、恢复或复杂 metrics
+
+## 35. SQLiteStateStore
+建议定义 `SQLiteStateStore`：
+
+```python
+class SQLiteStateStore:
+    def init_schema(self) -> None:
+        raise NotImplementedError
+```
+
+约束：
+1. `SQLiteStateStore` 属于 runtime state boundary，而不是 domain
+2. 使用 stdlib `sqlite3`
+3. SQLite 中时间统一存 ISO 8601 文本
+4. 当前阶段不引入 ORM、migrations framework 或 connection pool
+
+## 36. AutomationRuntimeService
+建议定义 `AutomationRuntimeService`：
+
+```python
+class AutomationRuntimeService:
+    def run_once(...) -> RuntimeTickResult:
+        raise NotImplementedError
+
+    def run_loop(...) -> None:
+        raise NotImplementedError
+```
+
+约束：
+1. `AutomationRuntimeService` 属于 application/runtime boundary，而不是 domain
+2. 它负责串联：
+   - scheduler due policy
+   - issue assembly
+   - receipt rendering
+   - dry-run delivery
+   - SQLite ledger
+3. 它不负责 UI、daemon 管理、重试或复杂 backfill
+
+## 37. Local automation CLI 命令面
+当前阶段允许扩展 CLI，为本地自动化 runtime 提供最小 operator entrypoints：
+1. `runtime once`
+2. `runtime loop`
+3. `runs list`
+4. `runs latest`
+
+约束：
+1. CLI 继续使用 stdlib `argparse`
+2. `runtime loop` 只做本地 polling，不做 daemon / service manager
+3. CLI 可以覆盖 `state`、`profile`、`adapter`、`output_dir`、`catchup_seconds`、`poll_interval` 等运行参数

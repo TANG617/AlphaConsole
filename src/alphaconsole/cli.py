@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import sys
 
+from alphaconsole.application import AutomationRuntimeService
 from alphaconsole.config import RuntimeConfigError, resolve_render_profile
 from alphaconsole.rendering import render_issue
 from alphaconsole.runtime import RuntimeBundle, build_runtime_from_config
+from alphaconsole.state import SQLiteStateStore
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -18,6 +20,9 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exc:
         return int(exc.code)
     except RuntimeConfigError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    except Exception as exc:
         print(str(exc), file=sys.stderr)
         return 1
 
@@ -57,11 +62,50 @@ def _build_parser() -> argparse.ArgumentParser:
     publish_immediate.add_argument("--app-id", required=True)
     publish_immediate.set_defaults(handler=_handle_publish_immediate)
 
+    runtime_parser = subparsers.add_parser("runtime")
+    runtime_subparsers = runtime_parser.add_subparsers(
+        dest="runtime_command", required=True
+    )
+
+    runtime_once = runtime_subparsers.add_parser("once")
+    _add_config_argument(runtime_once)
+    _add_state_argument(runtime_once)
+    _add_runtime_override_arguments(runtime_once)
+    runtime_once.add_argument("--catchup-seconds", type=int)
+    runtime_once.add_argument("--now", type=_parse_datetime)
+    runtime_once.set_defaults(handler=_handle_runtime_once)
+
+    runtime_loop = runtime_subparsers.add_parser("loop")
+    _add_config_argument(runtime_loop)
+    _add_state_argument(runtime_loop)
+    _add_runtime_override_arguments(runtime_loop)
+    runtime_loop.add_argument("--catchup-seconds", type=int)
+    runtime_loop.add_argument("--poll-interval", type=float)
+    runtime_loop.add_argument("--iterations", type=int)
+    runtime_loop.add_argument("--now", type=_parse_datetime)
+    runtime_loop.set_defaults(handler=_handle_runtime_loop)
+
+    runs_parser = subparsers.add_parser("runs")
+    runs_subparsers = runs_parser.add_subparsers(dest="runs_command", required=True)
+
+    runs_list = runs_subparsers.add_parser("list")
+    _add_state_argument(runs_list)
+    runs_list.add_argument("--limit", type=int, default=20)
+    runs_list.set_defaults(handler=_handle_runs_list)
+
+    runs_latest = runs_subparsers.add_parser("latest")
+    _add_state_argument(runs_latest)
+    runs_latest.set_defaults(handler=_handle_runs_latest)
+
     return parser
 
 
 def _add_config_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--config", type=Path, required=True)
+
+
+def _add_state_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--state", type=Path, required=True)
 
 
 def _add_runtime_arguments(
@@ -75,6 +119,12 @@ def _add_runtime_arguments(
         parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--now", type=_parse_datetime)
     parser.add_argument("--sequence-of-day", type=int, default=1)
+
+
+def _add_runtime_override_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--profile")
+    parser.add_argument("--adapter")
+    parser.add_argument("--output-dir", type=Path)
 
 
 def _handle_list(args: argparse.Namespace) -> int:
@@ -140,6 +190,69 @@ def _handle_publish_immediate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_runtime_once(args: argparse.Namespace) -> int:
+    bundle = build_runtime_from_config(args.config)
+    service = _build_automation_runtime_service(bundle)
+    adapter = _resolve_adapter(bundle, args.adapter, args.output_dir)
+    store = _open_state_store(args.state)
+    result = service.run_once(
+        slots=tuple(bundle.slots_by_id.values()),
+        apps=tuple(bundle.apps_by_id.values()),
+        adapter=adapter,
+        store=store,
+        now=_resolve_now(args.now),
+        profile=_resolve_profile(bundle, args.profile),
+        catchup_seconds=_resolve_catchup_seconds(bundle, args.catchup_seconds),
+    )
+    _print_runtime_tick_summary(result)
+    return 0
+
+
+def _handle_runtime_loop(args: argparse.Namespace) -> int:
+    bundle = build_runtime_from_config(args.config)
+    service = _build_automation_runtime_service(bundle)
+    adapter = _resolve_adapter(bundle, args.adapter, args.output_dir)
+    store = _open_state_store(args.state)
+    poll_interval = _resolve_poll_interval_seconds(bundle, args.poll_interval)
+    service.run_loop(
+        slots=tuple(bundle.slots_by_id.values()),
+        apps=tuple(bundle.apps_by_id.values()),
+        adapter=adapter,
+        store=store,
+        profile=_resolve_profile(bundle, args.profile),
+        poll_interval_seconds=poll_interval,
+        catchup_seconds=_resolve_catchup_seconds(bundle, args.catchup_seconds),
+        iterations=args.iterations,
+        now_fn=_build_now_fn(args.now, poll_interval),
+    )
+    if args.iterations is not None:
+        print(f"runtime loop completed: {args.iterations} iterations")
+    return 0
+
+
+def _handle_runs_list(args: argparse.Namespace) -> int:
+    store = _open_state_store(args.state)
+    runs = store.list_publication_runs(limit=args.limit)
+    if not runs:
+        print("No publication runs found.")
+        return 0
+
+    for run in runs:
+        print(_format_run(run))
+    return 0
+
+
+def _handle_runs_latest(args: argparse.Namespace) -> int:
+    store = _open_state_store(args.state)
+    latest = store.get_latest_publication_run()
+    if latest is None:
+        print("No publication runs found.")
+        return 0
+
+    print(_format_run(latest))
+    return 0
+
+
 def _resolve_profile(bundle: RuntimeBundle, override: str | None):
     if override is None:
         return bundle.default_profile
@@ -153,6 +266,21 @@ def _resolve_adapter(
 ):
     kind = override_kind or bundle.default_adapter_kind
     return bundle.adapter_factory.create(kind, output_dir=output_dir)
+
+
+def _resolve_catchup_seconds(bundle: RuntimeBundle, override: int | None) -> int:
+    if override is None:
+        return bundle.runtime_catchup_seconds
+    return override
+
+
+def _resolve_poll_interval_seconds(
+    bundle: RuntimeBundle,
+    override: float | None,
+) -> float:
+    if override is None:
+        return bundle.runtime_poll_interval_seconds
+    return override
 
 
 def _require_slot(bundle: RuntimeBundle, slot_id: str):
@@ -180,6 +308,53 @@ def _parse_datetime(value: str) -> datetime:
 
 def _resolve_now(value: datetime | None) -> datetime:
     return value or datetime.now()
+
+
+def _build_automation_runtime_service(
+    bundle: RuntimeBundle,
+) -> AutomationRuntimeService:
+    return AutomationRuntimeService(
+        assembler=bundle.issue_assembler,
+        print_service=bundle.print_service,
+    )
+
+
+def _open_state_store(path: Path) -> SQLiteStateStore:
+    store = SQLiteStateStore(path)
+    store.init_schema()
+    return store
+
+
+def _build_now_fn(base_now: datetime | None, poll_interval_seconds: float):
+    if base_now is None:
+        return datetime.now
+
+    iteration = 0
+
+    def _now_fn() -> datetime:
+        nonlocal iteration
+        current = base_now + timedelta(seconds=poll_interval_seconds * iteration)
+        iteration += 1
+        return current
+
+    return _now_fn
+
+
+def _print_runtime_tick_summary(result) -> None:
+    print(f"due: {len(result.due_occurrences)}")
+    print(f"published: {len(result.published_issue_ids)}")
+    print(f"skipped_existing: {len(result.skipped_existing_occurrences)}")
+
+
+def _format_run(run) -> str:
+    occurrence_at = run.occurrence_at.isoformat() if run.occurrence_at else "-"
+    delivered_at = run.delivered_at.isoformat() if run.delivered_at else "-"
+    slot_id = run.slot_id or "-"
+    return (
+        f"{run.issue_id} slot={slot_id} occurrence_at={occurrence_at} "
+        f"status={run.status} seq={run.sequence_of_day} "
+        f"adapter={run.adapter_name} delivered_at={delivered_at}"
+    )
 
 
 if __name__ == "__main__":
