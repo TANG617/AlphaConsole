@@ -369,6 +369,85 @@ Phase 7 Stop 条件
 9. config / runtime / CLI / end-to-end tests 全部通过
 10. 没有越界进入 ESC/POS / 硬件 / scheduler / persistence / UI / LLM
 
+---
+
+### Phase 8：Local Automation Runtime
+创建以下文件：
+
+```text
+docs/
+  runtime-state.md
+  scheduler-runtime.md
+
+src/alphaconsole/state/
+  __init__.py
+  models.py
+  sqlite_store.py
+
+src/alphaconsole/scheduler/
+  __init__.py
+  models.py
+  policy.py
+
+src/alphaconsole/application/
+  runtime_result.py
+  runtime_service.py
+
+tests/
+  test_sqlite_store.py
+  test_scheduler_policy.py
+  test_runtime_service.py
+  test_cli_runtime.py
+  test_end_to_end_automated_runtime.py
+```
+
+Phase 8 目标
+1. 引入 SQLite runtime state 与最小 run ledger
+2. 引入本地、同步、轮询式 scheduler runtime
+3. 支持 `runtime once` / `runtime loop`
+4. 支持最小 ledger CLI：
+   - `runs list`
+   - `runs latest`
+5. 保持 dry-run delivery only，不进入真实打印机
+
+Phase 8 要求
+- 使用 stdlib：
+  - `sqlite3`
+  - `tomllib`
+  - `argparse`
+  - `time`
+- TOML 继续负责声明式配置
+- SQLite 只负责 runtime state 与 ledger
+- 当前 scheduler 只支持 enabled slot 的每日固定 `publish_time`
+- 当前阶段采用保守 catch-up：
+  - first tick：`(now - catchup_seconds, now]`
+  - subsequent tick：`(last_tick_at, now]`
+- sequence of day 由 SQLite 管理
+
+Phase 8 测试要求
+1. SQLite store schema 与 ledger 读写可用
+2. due occurrence policy 正确
+3. `AutomationRuntimeService.run_once()` happy path / dedupe / failure path 可用
+4. CLI 的 `runtime once` / `runtime loop` / `runs list` / `runs latest` 可用
+5. end-to-end automated runtime 可跨重启保持 dedupe
+6. 现有 manual runtime、publication runtime、rendering、print boundary tests 全部继续通过
+
+Phase 8 Stop 条件
+1. `README.md`、`docs/README.md`、`docs/contracts.md`、`docs/coding-plan.md`、`docs/configuration.md`、`docs/manual-runtime.md` 已同步
+2. 新增 `docs/runtime-state.md`
+3. 新增 `docs/scheduler-runtime.md`
+4. `SQLiteStateStore` 已存在并可用
+5. `ScheduledOccurrence` 与 due policy 已存在
+6. `AutomationRuntimeService.run_once()` / `run_loop()` 已存在
+7. CLI 新增：
+   - `runtime once`
+   - `runtime loop`
+   - `runs list`
+   - `runs latest`
+8. `examples/basic.toml` 已扩展可用
+9. SQLite / scheduler / runtime / CLI / e2e tests 全部通过
+10. 没有越界进入 ESC/POS / 硬件 / scheduler daemon / persistence beyond SQLite runtime state / UI / LLM
+
 ## 3. 推荐目录职责
 ### `domain/enums.py`
 定义最小枚举，不要放业务逻辑。

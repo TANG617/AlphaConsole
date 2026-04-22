@@ -60,23 +60,25 @@
 - TOML config loading
 - runtime builder
 - CLI（manual dry-run only）
+- SQLite runtime state
+- local scheduler runtime
+- run ledger
+- automated dry-run publication
 - width-aware rendering
 - print pipeline boundary（dry-run）
 - publication runtime（dry-run end-to-end）
 - 最小单元测试
 
 ## 当前阶段说明
-当前阶段已进入 **manual runtime（config + CLI, dry-run）**。
-这一步的目标是在现有 `IssueAssembler`、width-aware rendering、dry-run print boundary 与 publication runtime 之上，建立一个 operator-facing dry-run runtime。
-当前 milestone 不是 printer hardware milestone，也不是 scheduler milestone，更不是 persistence milestone。
+当前阶段已进入 **local automation runtime（SQLite + scheduler + run ledger, dry-run）**。
+这一步的目标是在现有 `IssueAssembler`、width-aware rendering、dry-run print boundary、publication runtime 与 manual runtime 之上，建立一个本地、自动化、可恢复重启的 dry-run runtime。
+当前 milestone 仍然不是 printer hardware milestone，也不是 UI milestone，更不是 cloud/backend milestone。
 
 ## 明确不做
 当前阶段明确不做：
 - 真实 printer adapter
 - ESC/POS
 - 真实打印机硬件接入
-- Scheduler
-- Database / persistence
 - TUI / Web UI
 - LLM integration
 - WeatherApp / NewsApp 的真实内容采集
@@ -84,6 +86,7 @@
 - 打印失败恢复
 - print retry / recovery
 - print history query
+- scheduler daemon / service manager / cron integration
 - pagination
 - truncation
 

@@ -9,7 +9,9 @@ from .models import (
     ConfiguredPublicationSlot,
     ConfiguredSceneApp,
     DeliveryConfig,
+    DeliveryFileConfig,
     RenderingConfig,
+    RuntimeOptionsConfig,
     RuntimeConfig,
     RuntimeConfigError,
 )
@@ -25,7 +27,9 @@ def load_runtime_config(path: Path) -> RuntimeConfig:
         raise RuntimeConfigError(f"Invalid TOML in {path}: {exc}") from exc
 
     rendering_data = _optional_table(data, "rendering")
+    runtime_data = _optional_table(data, "runtime")
     delivery_data = _optional_table(data, "delivery")
+    delivery_file_data = _optional_table(delivery_data, "file")
     publication_slots = _optional_array_of_tables(data, "publication_slots")
     scene_apps = _optional_array_of_tables(data, "scene_apps")
 
@@ -37,6 +41,20 @@ def load_runtime_config(path: Path) -> RuntimeConfig:
             default="receipt42",
         )
     )
+    runtime = RuntimeOptionsConfig(
+        catchup_seconds=_defaulted_non_negative_int(
+            runtime_data,
+            "catchup_seconds",
+            context="runtime.catchup_seconds",
+            default=60,
+        ),
+        poll_interval_seconds=_defaulted_positive_float(
+            runtime_data,
+            "poll_interval_seconds",
+            context="runtime.poll_interval_seconds",
+            default=30.0,
+        ),
+    )
     delivery = DeliveryConfig(
         default_adapter=_defaulted_non_blank_string(
             delivery_data,
@@ -44,17 +62,25 @@ def load_runtime_config(path: Path) -> RuntimeConfig:
             context="delivery.default_adapter",
             default="stdout",
         ),
-        output_dir=_optional_string(
-            delivery_data,
-            "output_dir",
-            context="delivery.output_dir",
-            default=None,
+        file=DeliveryFileConfig(
+            output_dir=_optional_string(
+                delivery_file_data,
+                "output_dir",
+                context="delivery.file.output_dir",
+                default=_optional_string(
+                    delivery_data,
+                    "output_dir",
+                    context="delivery.output_dir",
+                    default=None,
+                ),
+            ),
         ),
     )
 
     return RuntimeConfig(
         source_path=path,
         rendering=rendering,
+        runtime=runtime,
         delivery=delivery,
         publication_slots=tuple(
             _parse_publication_slot(item, index)
@@ -125,6 +151,8 @@ def _parse_scene_app(data: Mapping[str, object], index: int) -> ConfiguredSceneA
 
 def _optional_table(data: Mapping[str, object], key: str) -> Mapping[str, object]:
     value = data.get(key, {})
+    if value is None:
+        return {}
     if not isinstance(value, Mapping):
         raise RuntimeConfigError(f"{key} must be a TOML table.")
     return value
@@ -170,6 +198,43 @@ def _defaulted_non_blank_string(
     if not normalized:
         raise RuntimeConfigError(f"{context} must be a non-empty string.")
     return normalized
+
+
+def _defaulted_non_negative_int(
+    data: Mapping[str, object],
+    key: str,
+    *,
+    context: str,
+    default: int,
+) -> int:
+    if key not in data:
+        return default
+
+    value = data[key]
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise RuntimeConfigError(f"{context} must be a non-negative integer.")
+    if value < 0:
+        raise RuntimeConfigError(f"{context} must be a non-negative integer.")
+    return value
+
+
+def _defaulted_positive_float(
+    data: Mapping[str, object],
+    key: str,
+    *,
+    context: str,
+    default: float,
+) -> float:
+    if key not in data:
+        return default
+
+    value = data[key]
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise RuntimeConfigError(f"{context} must be a positive number.")
+    numeric_value = float(value)
+    if numeric_value <= 0:
+        raise RuntimeConfigError(f"{context} must be a positive number.")
+    return numeric_value
 
 
 def _optional_string(

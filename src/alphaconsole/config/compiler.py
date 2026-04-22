@@ -30,7 +30,9 @@ class CompiledRuntimeConfig:
     apps_by_id: dict[str, ContentApp]
     default_profile: RenderProfile
     default_adapter_kind: str
-    default_output_dir: Path | None
+    file_output_dir: Path | None
+    runtime_catchup_seconds: int
+    runtime_poll_interval_seconds: float
 
 
 def resolve_render_profile(name: str) -> RenderProfile:
@@ -56,16 +58,25 @@ def compile_runtime_config(
     resolved_at = compiled_at or datetime.now()
     default_profile = resolve_render_profile(config.rendering.default_profile)
     default_adapter_kind = normalize_adapter_kind(config.delivery.default_adapter)
-    default_output_dir = _resolve_output_dir(
-        config.delivery.output_dir,
+    file_output_dir = _resolve_output_dir(
+        config.delivery.file.output_dir,
         base_dir=config.source_path.parent,
     )
+    if default_adapter_kind == "file" and file_output_dir is None:
+        raise RuntimeConfigError(
+            "delivery.file.output_dir is required when default_adapter is 'file'."
+        )
 
     slots_by_id: dict[str, PublicationSlot] = {}
     for configured_slot in config.publication_slots:
         if configured_slot.slot_id in slots_by_id:
             raise RuntimeConfigError(
                 f"Duplicate publication slot id: {configured_slot.slot_id!r}."
+            )
+        if configured_slot.recurrence_rule not in (None, "daily"):
+            raise RuntimeConfigError(
+                "Unsupported recurrence_rule for publication slot "
+                f"{configured_slot.slot_id!r}: {configured_slot.recurrence_rule!r}."
             )
         slots_by_id[configured_slot.slot_id] = PublicationSlot(
             slot_id=configured_slot.slot_id,
@@ -116,7 +127,9 @@ def compile_runtime_config(
         apps_by_id=apps_by_id,
         default_profile=default_profile,
         default_adapter_kind=default_adapter_kind,
-        default_output_dir=default_output_dir,
+        file_output_dir=file_output_dir,
+        runtime_catchup_seconds=config.runtime.catchup_seconds,
+        runtime_poll_interval_seconds=config.runtime.poll_interval_seconds,
     )
 
 

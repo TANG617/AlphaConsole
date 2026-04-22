@@ -9,14 +9,14 @@
 - preview scheduled issue
 - publish scheduled issue
 - publish immediate issue
+- 通过新增的 automated runtime commands 触发本地自动出刊
 
 当前阶段明确不做：
-- scheduler
-- daemon / cron
 - ESC/POS
 - 真实打印机硬件接入
 - 历史存储
 - 失败恢复
+- scheduler daemon / service manager / cron integration
 
 ## 3. CLI 命令面
 ### 3.1 list
@@ -64,4 +64,5 @@ uv run python -m alphaconsole.cli publish immediate --config examples/basic.toml
 
 ## 5. 当前阶段的边界
 manual runtime 只是一个同步可调用的 operator flow。  
-它不是 scheduler-facing runtime，也不是 printer hardware runtime，更不是 persistence milestone。
+它不是 printer hardware runtime。
+manual commands 仍然保留，同时 automated runtime commands 是新增的 operator entrypoints。

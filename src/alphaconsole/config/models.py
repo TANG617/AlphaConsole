@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import time
 from pathlib import Path
 
@@ -15,9 +15,20 @@ class RenderingConfig:
 
 
 @dataclass(slots=True, frozen=True)
+class RuntimeOptionsConfig:
+    catchup_seconds: int = 60
+    poll_interval_seconds: float = 30.0
+
+
+@dataclass(slots=True, frozen=True)
+class DeliveryFileConfig:
+    output_dir: str | None = None
+
+
+@dataclass(slots=True, frozen=True)
 class DeliveryConfig:
     default_adapter: str = "stdout"
-    output_dir: str | None = None
+    file: DeliveryFileConfig = field(default_factory=DeliveryFileConfig)
 
 
 @dataclass(slots=True, frozen=True)
@@ -47,6 +58,7 @@ class ConfiguredSceneApp:
 class RuntimeConfig:
     source_path: Path
     rendering: RenderingConfig
+    runtime: RuntimeOptionsConfig
     delivery: DeliveryConfig
     publication_slots: tuple[ConfiguredPublicationSlot, ...]
     scene_apps: tuple[ConfiguredSceneApp, ...]

@@ -24,7 +24,7 @@ from alphaconsole.services import IssueAssembler
 
 @dataclass(slots=True)
 class AdapterFactory:
-    default_output_dir: Path | None = None
+    file_output_dir: Path | None = None
 
     def create(
         self,
@@ -38,7 +38,7 @@ class AdapterFactory:
         if normalized_kind == "memory":
             return MemoryPrinterAdapter()
         if normalized_kind == "file":
-            resolved_output_dir = output_dir or self.default_output_dir
+            resolved_output_dir = output_dir or self.file_output_dir
             if resolved_output_dir is None:
                 raise RuntimeConfigError(
                     "File adapter requires an output directory."
@@ -57,6 +57,9 @@ class RuntimeBundle:
     apps_by_id: dict[str, ContentApp]
     default_profile: RenderProfile
     default_adapter_kind: str
+    runtime_catchup_seconds: int
+    runtime_poll_interval_seconds: float
+    file_output_dir: Path | None
     adapter_factory: AdapterFactory
 
 
@@ -70,7 +73,7 @@ def build_runtime_from_config(path: Path) -> RuntimeBundle:
         assembler=issue_assembler,
         print_service=print_service,
     )
-    adapter_factory = AdapterFactory(default_output_dir=compiled.default_output_dir)
+    adapter_factory = AdapterFactory(file_output_dir=compiled.file_output_dir)
 
     return RuntimeBundle(
         issue_assembler=issue_assembler,
@@ -80,5 +83,8 @@ def build_runtime_from_config(path: Path) -> RuntimeBundle:
         apps_by_id=compiled.apps_by_id,
         default_profile=compiled.default_profile,
         default_adapter_kind=compiled.default_adapter_kind,
+        runtime_catchup_seconds=compiled.runtime_catchup_seconds,
+        runtime_poll_interval_seconds=compiled.runtime_poll_interval_seconds,
+        file_output_dir=compiled.file_output_dir,
         adapter_factory=adapter_factory,
     )

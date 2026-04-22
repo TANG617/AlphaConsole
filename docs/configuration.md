@@ -10,14 +10,22 @@
   - scene apps
   - default render profile
   - default dry-run adapter kind
+  - runtime defaults
 
 ## 3. 推荐配置结构
 ```toml
 [rendering]
 default_profile = "receipt42"
 
+[runtime]
+catchup_seconds = 60
+poll_interval_seconds = 30
+
 [delivery]
 default_adapter = "stdout"
+
+[delivery.file]
+output_dir = "var/out"
 
 [[publication_slots]]
 slot_id = "morning"
@@ -53,20 +61,31 @@ is_enabled = true
     - `stdout`
     - `file`
     - `memory`
-- `output_dir`
+- `file.output_dir`
   - 可选
-  - 仅在 default adapter 为 `file` 时需要
+  - 当 default adapter 为 `file` 时必须存在
 
-### 4.3 publication_slots
+### 4.3 runtime
+- `catchup_seconds`
+  - 默认值：`60`
+- `poll_interval_seconds`
+  - 默认值：`30`
+- 当前阶段只用于本地 automation runtime
+- 当前阶段不扩张为复杂 scheduler config
+
+### 4.4 publication_slots
 每个 slot 当前支持：
 - `slot_id`
 - `name`
 - `publish_time`
 - `is_enabled`
 - `description`（可选）
-- `recurrence_rule`（可选，占位）
+- `recurrence_rule`（可选）
+  - 当前阶段只允许：
+    - `None`
+    - `"daily"`
 
-### 4.4 scene_apps
+### 4.5 scene_apps
 每个 scene app 当前支持：
 - `app_id`
 - `name`
@@ -84,6 +103,8 @@ is_enabled = true
 - 不支持未知 app 类型
 - `scene_note` 与 `checklist_items` 不能同时为空
 - default profile / adapter 必须落在当前支持范围内
+- `default_adapter = "file"` 时必须给出 `delivery.file.output_dir`
+- `recurrence_rule` 当前阶段不支持复杂解释，slot 只允许 `None` 或 `"daily"`
 
 ## 6. 当前明确不支持
 - weather/news app 配置
@@ -93,6 +114,8 @@ is_enabled = true
 - printer device 配置
 - 多 profile fallback
 - 多 adapter routing 规则
+- 复杂 recurrence engine
+- scheduler daemon / cron integration
 
 ## 7. 说明
 当前阶段配置只是从 config 世界进入 domain/application 世界的最小桥接层。  
