@@ -134,6 +134,40 @@ def test_cli_deliveries_list_and_latest_show_delivery_metadata(
     assert "bytes=" in captured.out
 
 
+def test_cli_runtime_once_profile_override_records_actual_delivery_profile(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    config_path = _write_temp_bytes_debug_config(tmp_path)
+    state_path = tmp_path / "state.db"
+
+    exit_code = main(
+        [
+            "runtime",
+            "once",
+            "--config",
+            str(config_path),
+            "--state",
+            str(state_path),
+            "--target-id",
+            "bytes_debug",
+            "--profile",
+            "receipt42",
+            "--now",
+            "2026-04-22T12:00:00",
+        ]
+    )
+    assert exit_code == 0
+
+    exit_code = main(["deliveries", "latest", "--state", str(state_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "target=bytes_debug" in captured.out
+    assert "render_profile=receipt_42" in captured.out
+    assert "render_profile=receipt_32" not in captured.out
+
+
 def _write_temp_network_config(tmp_path: Path, port: int) -> Path:
     config_text = Path("examples/printer-network.toml").read_text(encoding="utf-8")
     config_text = config_text.replace("port = 19100", f"port = {port}")

@@ -53,7 +53,7 @@ class EscPosSocketPrinterAdapter(PrinterAdapter):
             adapter_name=self.name,
             target_id=self.target_id,
             printer_profile_name=self.printer_profile_name,
-            render_profile_name=self.render_profile_name or receipt.profile_name,
+            render_profile_name=receipt.profile_name,
             transport=self.transport,
             bytes_length=len(payload.data),
             duration_ms=duration_ms,
