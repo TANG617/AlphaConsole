@@ -63,12 +63,14 @@ class ConfiguredSceneApp:
 class ConfiguredPrinterTarget:
     target_id: str
     kind: str
-    profile: str | None = None
+    printer_profile: str | None = None
+    render_profile: str | None = None
     mode: str | None = None
     font_path: str | None = None
-    font_size: int = 18
-    line_spacing: int = 4
-    cut: bool = True
+    font_size: int | None = None
+    line_spacing: int | None = None
+    cut: bool | None = None
+    feed_lines: int | None = None
     host: str | None = None
     port: int | None = None
     timeout_seconds: float = 5.0

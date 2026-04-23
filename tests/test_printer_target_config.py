@@ -20,7 +20,8 @@ kind = "escpos_socket"
 host = "127.0.0.1"
 port = 9100
 mode = "raster"
-profile = "receipt42"
+printer_profile = "generic_58mm"
+render_profile = "receipt42"
 font_path = ""
 font_size = 18
 line_spacing = 4
@@ -51,8 +52,11 @@ def test_compile_runtime_config_loads_printer_target() -> None:
     assert target.kind == "escpos_socket"
     assert target.host == "127.0.0.1"
     assert target.port == 19100
-    assert target.profile_name == "receipt_42"
+    assert target.printer_profile_name == "generic_58mm"
+    assert target.render_profile_name == "receipt_32"
+    assert target.profile_name == "receipt_32"
     assert target.hardware_options.mode == "raster"
+    assert target.hardware_options.feed_lines == 4
 
 
 @pytest.mark.parametrize(
@@ -126,7 +130,7 @@ def test_compile_runtime_config_rejects_non_raster_mode(tmp_path: Path) -> None:
 def test_compile_runtime_config_normalizes_blank_font_path_to_none(tmp_path: Path) -> None:
     config_path = tmp_path / "runtime.toml"
     config_path.write_text(
-        BASE_CONFIG.replace('port = 9100', 'port = 9100\noutput_dir = "var/escpos"')
+        BASE_CONFIG.replace('port = 9100\n', 'output_dir = "var/escpos"\n')
         .replace('kind = "escpos_socket"', 'kind = "escpos_bytes_file"')
         .replace('host = "127.0.0.1"\n', ""),
         encoding="utf-8",

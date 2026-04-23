@@ -6,6 +6,7 @@ import sqlite3
 
 import pytest
 
+from alphaconsole.printing import build_delivery_diagnostics
 from alphaconsole.state import SQLiteStateStore
 
 
@@ -104,23 +105,39 @@ def test_sqlite_store_records_delivery_attempt(tmp_path: Path) -> None:
 
     attempt = store.record_delivery_attempt(
         issue_id="issue-1",
-        adapter_name="stdout",
         attempted_at=created_at,
-        succeeded=True,
-        error_text=None,
+        diagnostics=build_delivery_diagnostics(
+            adapter_name="stdout",
+            target_id="stdout_default",
+            printer_profile_name="generic_58mm",
+            render_profile_name="receipt_32",
+            transport="stdout",
+            bytes_length=None,
+            duration_ms=12,
+            succeeded=True,
+            error_text=None,
+        ),
     )
 
     with sqlite3.connect(tmp_path / "state.db") as conn:
         row = conn.execute(
             """
-            SELECT issue_id, adapter_name, succeeded
+            SELECT issue_id, adapter_name, succeeded, target_id, printer_profile_name, render_profile_name, duration_ms
             FROM delivery_attempts
             WHERE attempt_id = ?
             """,
             (attempt.attempt_id,),
         ).fetchone()
 
-    assert row == ("issue-1", "stdout", 1)
+    assert row == (
+        "issue-1",
+        "stdout",
+        1,
+        "stdout_default",
+        "generic_58mm",
+        "receipt_32",
+        12,
+    )
 
 
 def test_sqlite_store_lists_runs_and_returns_latest(tmp_path: Path) -> None:

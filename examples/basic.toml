@@ -17,18 +17,22 @@ default_target = "stdout_default"
 [[printer_targets]]
 target_id = "stdout_default"
 kind = "stdout"
-profile = "receipt42"
+printer_profile = "generic_58mm"
+render_profile = "receipt32"
+mode = "raster"
 
 [[printer_targets]]
 target_id = "bytes_debug"
 kind = "escpos_bytes_file"
 output_dir = "var/escpos"
 mode = "raster"
-profile = "receipt42"
+printer_profile = "generic_58mm"
+render_profile = "receipt32"
 font_path = ""
 font_size = 18
 line_spacing = 4
 cut = true
+feed_lines = 4
 
 [[publication_slots]]
 slot_id = "morning"

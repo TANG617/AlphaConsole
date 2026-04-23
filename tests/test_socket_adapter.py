@@ -6,7 +6,11 @@ import threading
 
 import pytest
 
-from alphaconsole.printing import EscPosSocketPrinterAdapter, HardwarePrintOptions
+from alphaconsole.printing import (
+    GENERIC_58MM,
+    EscPosSocketPrinterAdapter,
+    HardwarePrintOptions,
+)
 from alphaconsole.printing.test_page import build_test_receipt
 from alphaconsole.rendering import RECEIPT_42
 
@@ -37,9 +41,12 @@ def test_socket_adapter_delivers_non_empty_bytes_to_tcp_server() -> None:
             target_id="receipt_printer",
             host="127.0.0.1",
             port=server.server_address[1],
+            printer_profile=GENERIC_58MM,
+            printer_profile_name=GENERIC_58MM.profile_id,
+            render_profile_name=RECEIPT_42.name,
             hardware_options=HardwarePrintOptions(cut=True),
         )
-        adapter.deliver(
+        diagnostics = adapter.deliver(
             build_test_receipt(
                 RECEIPT_42,
                 issue_id="socket-test",
@@ -51,6 +58,13 @@ def test_socket_adapter_delivers_non_empty_bytes_to_tcp_server() -> None:
 
         assert server.received
         assert server.received.startswith(b"\x1b@")
+        assert diagnostics.adapter_name == "escpos_socket"
+        assert diagnostics.target_id == "receipt_printer"
+        assert diagnostics.printer_profile_name == "generic_58mm"
+        assert diagnostics.render_profile_name == RECEIPT_42.name
+        assert diagnostics.bytes_length is not None
+        assert diagnostics.bytes_length > 0
+        assert diagnostics.succeeded is True
 
 
 def test_socket_adapter_bubbles_up_connection_failure_without_retry(monkeypatch) -> None:
@@ -68,6 +82,9 @@ def test_socket_adapter_bubbles_up_connection_failure_without_retry(monkeypatch)
         target_id="receipt_printer",
         host="127.0.0.1",
         port=19100,
+        printer_profile=GENERIC_58MM,
+        printer_profile_name=GENERIC_58MM.profile_id,
+        render_profile_name=RECEIPT_42.name,
     )
 
     with pytest.raises(TimeoutError, match="timed out"):

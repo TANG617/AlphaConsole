@@ -65,6 +65,11 @@
 - run ledger
 - automated dry-run publication
 - printer target config
+- printer profiles
+- calibration pages
+- delivery diagnostics
+- target-aware operator CLI
+- hardware-aware delivery metadata
 - raster-first hardware printing
 - ESC/POS socket delivery
 - bytes debug output
@@ -74,9 +79,9 @@
 - 最小单元测试
 
 ## 当前阶段说明
-当前阶段已进入 **Printer Hardware Enablement（single-printer, raster-first, local-first）**。
-这一步的目标是在现有 `IssueAssembler`、width-aware rendering、print pipeline boundary、publication runtime、manual runtime 与 local automation runtime 之上，建立第一条真实打印链路。
-当前 milestone 不是 multi-printer milestone，也不是 printer discovery milestone，更不是 delivery reliability milestone。
+当前阶段已进入 **Printer Profiles, Calibration & Delivery Reliability**。
+这一步的目标是在现有 `IssueAssembler`、width-aware rendering、print pipeline boundary、publication runtime、manual runtime、local automation runtime 与真实打印链路之上，把打印机推进到可校准、可诊断、可维护的阶段。
+当前 milestone 不是 multi-printer milestone，也不是 printer discovery milestone，更不是 delivery recovery milestone。
 
 ## 明确不做
 当前阶段明确不做：

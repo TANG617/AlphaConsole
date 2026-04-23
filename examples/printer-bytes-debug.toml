@@ -12,30 +12,15 @@ default_adapter = "stdout"
 output_dir = "var/out"
 
 [printing]
-default_target = "receipt_printer"
-
-[[printer_targets]]
-target_id = "receipt_printer"
-kind = "escpos_socket"
-host = "127.0.0.1"
-port = 19100
-timeout_seconds = 5.0
-mode = "raster"
-printer_profile = "generic_58mm"
-render_profile = "receipt32"
-font_path = ""
-font_size = 18
-line_spacing = 4
-cut = true
-feed_lines = 4
+default_target = "bytes_debug"
 
 [[printer_targets]]
 target_id = "bytes_debug"
 kind = "escpos_bytes_file"
 output_dir = "var/escpos"
-mode = "raster"
 printer_profile = "generic_58mm"
 render_profile = "receipt32"
+mode = "raster"
 font_path = ""
 font_size = 18
 line_spacing = 4
@@ -53,6 +38,6 @@ recurrence_rule = "daily"
 app_id = "lunch"
 name = "Lunch"
 target_publication_slot_id = "noon"
-scene_note = "Eat well"
-checklist_items = ["Vegetables", "Train", "Stop at 21:00"]
+scene_note = "Eat vegetables"
+checklist_items = ["Walk", "Stretch"]
 is_enabled = true

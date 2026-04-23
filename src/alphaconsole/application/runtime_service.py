@@ -5,7 +5,11 @@ from datetime import datetime, timedelta
 import time as time_module
 
 from alphaconsole.domain import ContentApp, PublicationSlot
-from alphaconsole.printing import PrintService, PrinterAdapter
+from alphaconsole.printing import (
+    PrintService,
+    PrinterAdapter,
+    build_failed_delivery_diagnostics,
+)
 from alphaconsole.rendering import RenderProfile
 from alphaconsole.scheduler import ScheduledOccurrence, compute_due_occurrences
 from alphaconsole.services import IssueAssembler
@@ -74,29 +78,31 @@ class AutomationRuntimeService:
                 sequence_of_day=issue.sequence_of_day,
                 profile_name=receipt.profile_name,
                 adapter_name=adapter.name,
+                target_id=getattr(adapter, "target_id", None),
+                printer_profile_name=getattr(adapter, "printer_profile_name", None),
                 status="assembled",
                 created_at=now,
             )
 
             try:
-                adapter.deliver(receipt)
+                diagnostics = adapter.deliver(receipt)
             except Exception as exc:
                 store.record_delivery_attempt(
                     issue_id=issue.issue_id,
-                    adapter_name=adapter.name,
                     attempted_at=now,
-                    succeeded=False,
-                    error_text=str(exc),
+                    diagnostics=build_failed_delivery_diagnostics(
+                        adapter,
+                        receipt,
+                        error_text=str(exc),
+                    ),
                 )
                 store.mark_publication_delivery_failed(issue.issue_id)
                 raise
 
             store.record_delivery_attempt(
                 issue_id=issue.issue_id,
-                adapter_name=adapter.name,
                 attempted_at=now,
-                succeeded=True,
-                error_text=None,
+                diagnostics=diagnostics,
             )
             store.mark_publication_delivered(issue.issue_id, delivered_at=now)
             published_issue_ids.append(issue.issue_id)

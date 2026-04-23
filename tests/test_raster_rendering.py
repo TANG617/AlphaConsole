@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from alphaconsole.domain import TriggerMode
-from alphaconsole.printing import RenderedReceipt, rasterize_receipt
+from alphaconsole.printing import GENERIC_58MM, RenderedReceipt, rasterize_receipt
 
 
 def make_receipt(text: str) -> RenderedReceipt:
@@ -52,6 +52,15 @@ def test_rasterize_receipt_supports_default_font_for_ascii() -> None:
 
     assert rasterized.width_px >= 1
     assert rasterized.height_px >= 1
+
+
+def test_rasterize_receipt_respects_printer_profile_printable_width() -> None:
+    rasterized = rasterize_receipt(
+        make_receipt("PROFILE WIDTH TEST"),
+        printer_profile=GENERIC_58MM,
+    )
+
+    assert rasterized.width_px == GENERIC_58MM.printable_width_dots
 
 
 def test_rasterize_receipt_raises_clear_error_for_missing_font_file() -> None:

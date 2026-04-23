@@ -16,6 +16,8 @@ class PublicationRunRecord:
     status: str
     created_at: datetime
     delivered_at: datetime | None
+    target_id: str | None = None
+    printer_profile_name: str | None = None
 
 
 @dataclass(slots=True)
@@ -26,6 +28,11 @@ class DeliveryAttemptRecord:
     attempted_at: datetime
     succeeded: bool
     error_text: str | None
+    target_id: str | None = None
+    printer_profile_name: str | None = None
+    render_profile_name: str | None = None
+    bytes_length: int | None = None
+    duration_ms: int | None = None
 
 
 @dataclass(slots=True)

@@ -172,22 +172,39 @@ def _parse_printer_target(
     return ConfiguredPrinterTarget(
         target_id=_required_string(data, "target_id", context=context),
         kind=_required_string(data, "kind", context=context),
-        profile=_optional_non_blank_string(data, "profile", context=f"{context}.profile"),
+        printer_profile=_optional_non_blank_string(
+            data,
+            "printer_profile",
+            context=f"{context}.printer_profile",
+        ),
+        render_profile=_optional_non_blank_string(
+            data,
+            "render_profile",
+            context=f"{context}.render_profile",
+            default=_optional_non_blank_string(
+                data,
+                "profile",
+                context=f"{context}.profile",
+            ),
+        ),
         mode=_optional_non_blank_string(data, "mode", context=f"{context}.mode"),
         font_path=_optional_string(data, "font_path", context=f"{context}.font_path"),
-        font_size=_defaulted_positive_int(
+        font_size=_optional_positive_int(
             data,
             "font_size",
             context=f"{context}.font_size",
-            default=18,
         ),
-        line_spacing=_defaulted_non_negative_int(
+        line_spacing=_optional_non_negative_int(
             data,
             "line_spacing",
             context=f"{context}.line_spacing",
-            default=4,
         ),
-        cut=_defaulted_bool(data, "cut", context=f"{context}.cut", default=True),
+        cut=_optional_bool(data, "cut", context=f"{context}.cut"),
+        feed_lines=_optional_non_negative_int(
+            data,
+            "feed_lines",
+            context=f"{context}.feed_lines",
+        ),
         host=_optional_non_blank_string(data, "host", context=f"{context}.host"),
         port=_optional_positive_int(data, "port", context=f"{context}.port"),
         timeout_seconds=_defaulted_positive_float(
@@ -331,9 +348,10 @@ def _optional_non_blank_string(
     key: str,
     *,
     context: str,
+    default: str | None = None,
 ) -> str | None:
     if key not in data:
-        return None
+        return default
 
     value = data[key]
     if value is None:
@@ -364,6 +382,23 @@ def _optional_positive_int(
     return value
 
 
+def _optional_non_negative_int(
+    data: Mapping[str, object],
+    key: str,
+    *,
+    context: str,
+) -> int | None:
+    if key not in data:
+        return None
+
+    value = data[key]
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise RuntimeConfigError(f"{context} must be a non-negative integer.")
+    if value < 0:
+        raise RuntimeConfigError(f"{context} must be a non-negative integer.")
+    return value
+
+
 def _defaulted_bool(
     data: Mapping[str, object],
     key: str,
@@ -373,6 +408,21 @@ def _defaulted_bool(
 ) -> bool:
     if key not in data:
         return default
+
+    value = data[key]
+    if not isinstance(value, bool):
+        raise RuntimeConfigError(f"{context} must be a boolean.")
+    return value
+
+
+def _optional_bool(
+    data: Mapping[str, object],
+    key: str,
+    *,
+    context: str,
+) -> bool | None:
+    if key not in data:
+        return None
 
     value = data[key]
     if not isinstance(value, bool):

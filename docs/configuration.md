@@ -12,6 +12,7 @@
   - default dry-run adapter kind
   - runtime defaults
   - printer target config
+  - printer profiles / calibration defaults
 
 ## 3. 推荐配置结构
 ```toml
@@ -34,18 +35,21 @@ default_target = "stdout_default"
 [[printer_targets]]
 target_id = "stdout_default"
 kind = "stdout"
-profile = "receipt42"
+printer_profile = "generic_58mm"
+render_profile = "receipt32"
 
 [[printer_targets]]
 target_id = "bytes_debug"
 kind = "escpos_bytes_file"
 output_dir = "var/escpos"
 mode = "raster"
-profile = "receipt42"
+printer_profile = "generic_58mm"
+render_profile = "receipt32"
 font_path = ""
 font_size = 18
 line_spacing = 4
 cut = true
+feed_lines = 4
 
 [[publication_slots]]
 slot_id = "morning"
@@ -99,8 +103,12 @@ is_enabled = true
     - `file`
     - `memory`
     - `escpos_socket`
-    - `escpos_bytes_file`
-- `profile`（可选）
+  - `escpos_bytes_file`
+- `printer_profile`（可选）
+  - 当前阶段内建：
+    - `generic_58mm`
+    - `generic_80mm`
+- `render_profile`（可选）
 - `mode`（可选）
   - 当前阶段只允许：
     - `raster`
@@ -108,6 +116,7 @@ is_enabled = true
 - `font_size`（可选）
 - `line_spacing`（可选）
 - `cut`（可选）
+- `feed_lines`（可选）
 - `host` / `port`
   - `escpos_socket` 必填
 - `output_dir`
@@ -153,6 +162,7 @@ is_enabled = true
 - default profile / adapter 必须落在当前支持范围内
 - `default_adapter = "file"` 时必须给出 `delivery.file.output_dir`
 - `printing.default_target` 若存在，必须引用已定义 target
+- `printer_profile` 若给出，必须是当前支持的内建 profile
 - `escpos_socket` 必须给出 `host` 与 `port`
 - `file` / `escpos_bytes_file` target 必须给出 `output_dir`
 - `mode` 当前只允许 `raster`
@@ -169,6 +179,7 @@ is_enabled = true
 - scheduler daemon / cron integration
 - USB / CUPS / 蓝牙 target
 - printer discovery / capability negotiation
+- 多打印机路由与多 target 调度
 
 ## 7. 说明
 当前阶段配置只是从 config 世界进入 domain/application 世界的最小桥接层。  
