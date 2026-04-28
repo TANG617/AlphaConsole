@@ -9,11 +9,12 @@
 - preview scheduled issue
 - publish scheduled issue
 - publish immediate issue
+- 通过 TCP ESC/POS adapter 打印到网口小票机
 - 通过新增的 automated runtime commands 触发本地自动出刊
 
 当前阶段明确不做：
-- ESC/POS
-- 真实打印机硬件接入
+- USB / Bluetooth printer adapter
+- production-grade ESC/POS 队列、重试和恢复
 - 历史存储
 - 失败恢复
 - scheduler daemon / service manager / cron integration
@@ -47,12 +48,31 @@ uv run python -m alphaconsole.cli publish scheduled --config examples/basic.toml
 uv run python -m alphaconsole.cli publish immediate --config examples/basic.toml --app-id lunch
 ```
 
+### 3.5 publish to TCP ESC/POS
+通过 IP `10.0.4.192` 的网口 ESC/POS 小票机打印：
+
+```bash
+PYTHONPATH=src python3 -m alphaconsole.cli publish scheduled --config examples/basic.toml --slot-id noon --adapter escpos-tcp --printer-host 10.0.4.192
+```
+
+如果使用示例配置：
+
+```bash
+PYTHONPATH=src python3 -m alphaconsole.cli publish scheduled --config examples/escpos_tcp.toml --slot-id noon
+```
+
 ## 4. 常用参数
 当前阶段建议支持：
 - `--config`
 - `--profile`
 - `--adapter`
 - `--output-dir`
+- `--printer-host`
+- `--printer-port`
+- `--printer-timeout`
+- `--printer-encoding`
+- `--printer-feed-lines`
+- `--no-cut`
 - `--now`
 - `--sequence-of-day`
 
@@ -60,9 +80,11 @@ uv run python -m alphaconsole.cli publish immediate --config examples/basic.toml
 - `--profile` 可覆盖配置中的默认 profile
 - `--adapter` 可覆盖配置中的默认 adapter
 - `--output-dir` 主要用于 `file` adapter
+- `--printer-host` 主要用于 `escpos-tcp` adapter，默认端口为 `9100`
+- `--printer-encoding` 默认是 `gb18030`，常见中文小票机可直接使用
 - `--now` 与 `--sequence-of-day` 用于测试和可重复运行
 
 ## 5. 当前阶段的边界
 manual runtime 只是一个同步可调用的 operator flow。  
-它不是 printer hardware runtime。
+它可以调用最小 TCP ESC/POS adapter，但不是产品级 printer hardware runtime。
 manual commands 仍然保留，同时 automated runtime commands 是新增的 operator entrypoints。

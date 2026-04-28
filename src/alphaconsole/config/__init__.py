@@ -9,6 +9,7 @@ from .loader import load_runtime_config
 from .models import (
     ConfiguredPublicationSlot,
     ConfiguredSceneApp,
+    DeliveryEscposTcpConfig,
     DeliveryConfig,
     DeliveryFileConfig,
     RenderingConfig,
@@ -21,6 +22,7 @@ __all__ = [
     "CompiledRuntimeConfig",
     "ConfiguredPublicationSlot",
     "ConfiguredSceneApp",
+    "DeliveryEscposTcpConfig",
     "DeliveryConfig",
     "DeliveryFileConfig",
     "RenderingConfig",

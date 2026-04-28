@@ -27,6 +27,14 @@ default_adapter = "stdout"
 [delivery.file]
 output_dir = "var/out"
 
+[delivery.escpos_tcp]
+host = "10.0.4.192"
+port = 9100
+timeout_seconds = 5
+encoding = "gb18030"
+cut = true
+feed_lines = 3
+
 [[publication_slots]]
 slot_id = "morning"
 name = "Morning"
@@ -61,9 +69,23 @@ is_enabled = true
     - `stdout`
     - `file`
     - `memory`
+    - `escpos-tcp`
 - `file.output_dir`
   - 可选
   - 当 default adapter 为 `file` 时必须存在
+- `escpos_tcp.host`
+  - 可选
+  - 当 default adapter 为 `escpos-tcp` 时必须存在
+- `escpos_tcp.port`
+  - 默认值：`9100`
+- `escpos_tcp.timeout_seconds`
+  - 默认值：`5`
+- `escpos_tcp.encoding`
+  - 默认值：`gb18030`
+- `escpos_tcp.cut`
+  - 默认值：`true`
+- `escpos_tcp.feed_lines`
+  - 默认值：`3`
 
 ### 4.3 runtime
 - `catchup_seconds`
@@ -104,6 +126,7 @@ is_enabled = true
 - `scene_note` 与 `checklist_items` 不能同时为空
 - default profile / adapter 必须落在当前支持范围内
 - `default_adapter = "file"` 时必须给出 `delivery.file.output_dir`
+- `default_adapter = "escpos-tcp"` 时必须给出 `delivery.escpos_tcp.host`
 - `recurrence_rule` 当前阶段不支持复杂解释，slot 只允许 `None` 或 `"daily"`
 
 ## 6. 当前明确不支持
@@ -111,7 +134,7 @@ is_enabled = true
 - 历史配置
 - queue 配置
 - retry 配置
-- printer device 配置
+- USB / Bluetooth printer device 配置
 - 多 profile fallback
 - 多 adapter routing 规则
 - 复杂 recurrence engine

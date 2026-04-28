@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import codecs
 from datetime import datetime
 from pathlib import Path
 
@@ -21,7 +22,15 @@ _PROFILE_ALIASES = {
     "receipt42": RECEIPT_42,
     "receipt_42": RECEIPT_42,
 }
-_SUPPORTED_ADAPTER_KINDS = {"stdout", "file", "memory"}
+_ADAPTER_KIND_ALIASES = {
+    "stdout": "stdout",
+    "file": "file",
+    "memory": "memory",
+    "escpos": "escpos_tcp",
+    "escpostcp": "escpos_tcp",
+    "escpos-tcp": "escpos_tcp",
+    "escpos_tcp": "escpos_tcp",
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -31,6 +40,12 @@ class CompiledRuntimeConfig:
     default_profile: RenderProfile
     default_adapter_kind: str
     file_output_dir: Path | None
+    escpos_tcp_host: str | None
+    escpos_tcp_port: int
+    escpos_tcp_timeout_seconds: float
+    escpos_tcp_encoding: str
+    escpos_tcp_cut: bool
+    escpos_tcp_feed_lines: int
     runtime_catchup_seconds: int
     runtime_poll_interval_seconds: float
 
@@ -45,9 +60,9 @@ def resolve_render_profile(name: str) -> RenderProfile:
 
 def normalize_adapter_kind(kind: str) -> str:
     normalized = kind.strip().lower()
-    if normalized not in _SUPPORTED_ADAPTER_KINDS:
+    if normalized not in _ADAPTER_KIND_ALIASES:
         raise RuntimeConfigError(f"Unsupported adapter kind: {kind!r}.")
-    return normalized
+    return _ADAPTER_KIND_ALIASES[normalized]
 
 
 def compile_runtime_config(
@@ -66,6 +81,15 @@ def compile_runtime_config(
         raise RuntimeConfigError(
             "delivery.file.output_dir is required when default_adapter is 'file'."
         )
+    if (
+        default_adapter_kind == "escpos_tcp"
+        and config.delivery.escpos_tcp.host is None
+    ):
+        raise RuntimeConfigError(
+            "delivery.escpos_tcp.host is required when default_adapter is "
+            "'escpos_tcp'."
+        )
+    _validate_encoding(config.delivery.escpos_tcp.encoding)
 
     slots_by_id: dict[str, PublicationSlot] = {}
     for configured_slot in config.publication_slots:
@@ -128,6 +152,12 @@ def compile_runtime_config(
         default_profile=default_profile,
         default_adapter_kind=default_adapter_kind,
         file_output_dir=file_output_dir,
+        escpos_tcp_host=config.delivery.escpos_tcp.host,
+        escpos_tcp_port=config.delivery.escpos_tcp.port,
+        escpos_tcp_timeout_seconds=config.delivery.escpos_tcp.timeout_seconds,
+        escpos_tcp_encoding=config.delivery.escpos_tcp.encoding,
+        escpos_tcp_cut=config.delivery.escpos_tcp.cut,
+        escpos_tcp_feed_lines=config.delivery.escpos_tcp.feed_lines,
         runtime_catchup_seconds=config.runtime.catchup_seconds,
         runtime_poll_interval_seconds=config.runtime.poll_interval_seconds,
     )
@@ -153,3 +183,12 @@ def _resolve_output_dir(value: str | None, *, base_dir: Path) -> Path | None:
     if not path.is_absolute():
         path = base_dir / path
     return path
+
+
+def _validate_encoding(value: str) -> None:
+    try:
+        codecs.lookup(value)
+    except LookupError as exc:
+        raise RuntimeConfigError(
+            f"Unsupported delivery.escpos_tcp.encoding: {value!r}."
+        ) from exc

@@ -117,6 +117,7 @@ def _add_runtime_arguments(
     if include_adapter:
         parser.add_argument("--adapter")
         parser.add_argument("--output-dir", type=Path)
+        _add_printer_arguments(parser)
     parser.add_argument("--now", type=_parse_datetime)
     parser.add_argument("--sequence-of-day", type=int, default=1)
 
@@ -125,6 +126,21 @@ def _add_runtime_override_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--profile")
     parser.add_argument("--adapter")
     parser.add_argument("--output-dir", type=Path)
+    _add_printer_arguments(parser)
+
+
+def _add_printer_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--printer-host")
+    parser.add_argument("--printer-port", type=int)
+    parser.add_argument("--printer-timeout", type=float)
+    parser.add_argument("--printer-encoding")
+    parser.add_argument("--printer-feed-lines", type=int)
+    parser.add_argument(
+        "--no-cut",
+        dest="printer_cut",
+        action="store_false",
+        default=None,
+    )
 
 
 def _handle_list(args: argparse.Namespace) -> int:
@@ -163,7 +179,7 @@ def _handle_publish_scheduled(args: argparse.Namespace) -> int:
     bundle = build_runtime_from_config(args.config)
     slot = _require_slot(bundle, args.slot_id)
     profile = _resolve_profile(bundle, args.profile)
-    adapter = _resolve_adapter(bundle, args.adapter, args.output_dir)
+    adapter = _resolve_adapter_from_args(bundle, args)
     bundle.publication_service.publish_scheduled(
         slot=slot,
         apps=tuple(bundle.apps_by_id.values()),
@@ -179,7 +195,7 @@ def _handle_publish_immediate(args: argparse.Namespace) -> int:
     bundle = build_runtime_from_config(args.config)
     app = _require_app(bundle, args.app_id)
     profile = _resolve_profile(bundle, args.profile)
-    adapter = _resolve_adapter(bundle, args.adapter, args.output_dir)
+    adapter = _resolve_adapter_from_args(bundle, args)
     bundle.publication_service.publish_immediate(
         app=app,
         adapter=adapter,
@@ -193,7 +209,7 @@ def _handle_publish_immediate(args: argparse.Namespace) -> int:
 def _handle_runtime_once(args: argparse.Namespace) -> int:
     bundle = build_runtime_from_config(args.config)
     service = _build_automation_runtime_service(bundle)
-    adapter = _resolve_adapter(bundle, args.adapter, args.output_dir)
+    adapter = _resolve_adapter_from_args(bundle, args)
     store = _open_state_store(args.state)
     result = service.run_once(
         slots=tuple(bundle.slots_by_id.values()),
@@ -211,7 +227,7 @@ def _handle_runtime_once(args: argparse.Namespace) -> int:
 def _handle_runtime_loop(args: argparse.Namespace) -> int:
     bundle = build_runtime_from_config(args.config)
     service = _build_automation_runtime_service(bundle)
-    adapter = _resolve_adapter(bundle, args.adapter, args.output_dir)
+    adapter = _resolve_adapter_from_args(bundle, args)
     store = _open_state_store(args.state)
     poll_interval = _resolve_poll_interval_seconds(bundle, args.poll_interval)
     service.run_loop(
@@ -263,9 +279,39 @@ def _resolve_adapter(
     bundle: RuntimeBundle,
     override_kind: str | None,
     output_dir: Path | None,
+    *,
+    printer_host: str | None = None,
+    printer_port: int | None = None,
+    printer_timeout_seconds: float | None = None,
+    printer_encoding: str | None = None,
+    printer_cut: bool | None = None,
+    printer_feed_lines: int | None = None,
 ):
     kind = override_kind or bundle.default_adapter_kind
-    return bundle.adapter_factory.create(kind, output_dir=output_dir)
+    return bundle.adapter_factory.create(
+        kind,
+        output_dir=output_dir,
+        printer_host=printer_host,
+        printer_port=printer_port,
+        printer_timeout_seconds=printer_timeout_seconds,
+        printer_encoding=printer_encoding,
+        printer_cut=printer_cut,
+        printer_feed_lines=printer_feed_lines,
+    )
+
+
+def _resolve_adapter_from_args(bundle: RuntimeBundle, args: argparse.Namespace):
+    return _resolve_adapter(
+        bundle,
+        args.adapter,
+        args.output_dir,
+        printer_host=args.printer_host,
+        printer_port=args.printer_port,
+        printer_timeout_seconds=args.printer_timeout,
+        printer_encoding=args.printer_encoding,
+        printer_cut=args.printer_cut,
+        printer_feed_lines=args.printer_feed_lines,
+    )
 
 
 def _resolve_catchup_seconds(bundle: RuntimeBundle, override: int | None) -> int:

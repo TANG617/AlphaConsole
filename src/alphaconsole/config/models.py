@@ -26,9 +26,22 @@ class DeliveryFileConfig:
 
 
 @dataclass(slots=True, frozen=True)
+class DeliveryEscposTcpConfig:
+    host: str | None = None
+    port: int = 9100
+    timeout_seconds: float = 5.0
+    encoding: str = "gb18030"
+    cut: bool = True
+    feed_lines: int = 3
+
+
+@dataclass(slots=True, frozen=True)
 class DeliveryConfig:
     default_adapter: str = "stdout"
     file: DeliveryFileConfig = field(default_factory=DeliveryFileConfig)
+    escpos_tcp: DeliveryEscposTcpConfig = field(
+        default_factory=DeliveryEscposTcpConfig
+    )
 
 
 @dataclass(slots=True, frozen=True)
