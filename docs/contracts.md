@@ -395,6 +395,63 @@ class IssueAssembler:
   - image -> ESC/POS bytes
   - bytes -> transport
 - 不把硬件字节流与设备配置回写到 domain
+
+## 17. Printer Profile / Diagnostics Boundary
+当前阶段允许把打印机推进到 profile-aware、calibratable、diagnosable，但这些对象仍然不属于 domain。
+
+### 17.1 PrinterProfile
+- 作用：
+  - 描述设备侧的纸宽、可打印宽度与默认参数
+- 当前阶段建议字段：
+  - `profile_id`
+  - `paper_width_mm`
+  - `printable_width_dots`
+  - `horizontal_padding_dots`
+  - `line_feed_after_print`
+  - `supports_cut`
+  - `default_cut`
+  - `default_font_size`
+  - `default_line_spacing`
+  - `recommended_render_profile_name`
+
+### 17.2 PrinterCapability
+- 作用：
+  - 表示当前 target 的最小能力摘要
+- 当前阶段只要求最小静态能力，不做真实探测
+
+### 17.3 DeliveryDiagnostics
+- 作用：
+  - 表示一次 delivery 的最小诊断信息
+- 当前阶段建议包含：
+  - `adapter_name`
+  - `target_id`
+  - `printer_profile_name`
+  - `render_profile_name`
+  - `transport`
+  - `bytes_length`
+  - `duration_ms`
+  - `succeeded`
+  - `error_text`
+
+### 17.4 TargetHealthResult
+- 作用：
+  - 表示 operator 主动执行 `targets ping` 的结果
+- 约束：
+  - 当前阶段只对 `escpos_socket` target 有意义
+  - 不做自动恢复
+
+### 17.5 PrinterTargetInspection
+- 作用：
+  - 表示 `targets inspect` 的结构化输出摘要
+- 约束：
+  - 用于 operator 观察，不是 domain 状态
+
+### 17.6 PrintResult
+- 作用：
+  - 将 `RenderedReceipt` 与 `DeliveryDiagnostics` 打包成一次打印结果
+- 约束：
+  - 不引入新的产品级状态机
+  - 不引入 retry / recovery
 7. 一个 App 在一次 Issue 中只发布一个 Block
 
 ## 16. Printing / application boundary

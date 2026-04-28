@@ -7,6 +7,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from .artifact import RenderedReceipt
+from .profiles import PrinterProfile
 
 
 @dataclass(slots=True)
@@ -16,15 +17,18 @@ class RasterizedReceipt:
     rendered_at: datetime
     width_px: int
     height_px: int
+    max_line_width_px: int
+    line_height_px: int
 
 
 def rasterize_receipt(
     receipt: RenderedReceipt,
     *,
+    printer_profile: PrinterProfile | None = None,
     font_path: Path | None = None,
     font_size: int = 18,
     line_spacing: int = 4,
-    horizontal_padding: int = 8,
+    horizontal_padding: int | None = None,
     vertical_padding: int = 8,
 ) -> RasterizedReceipt:
     font = load_receipt_font(font_path=font_path, font_size=font_size)
@@ -33,8 +37,17 @@ def rasterize_receipt(
     scratch_draw = ImageDraw.Draw(scratch)
     line_height = _measure_line_height(scratch_draw, font)
     max_line_width = max(_measure_line_width(scratch_draw, font, line) for line in lines)
+    resolved_horizontal_padding = horizontal_padding
+    if resolved_horizontal_padding is None:
+        resolved_horizontal_padding = (
+            printer_profile.horizontal_padding_dots if printer_profile is not None else 8
+        )
 
-    width_px = max(1, max_line_width + horizontal_padding * 2)
+    width_px = (
+        max(1, printer_profile.printable_width_dots)
+        if printer_profile is not None
+        else max(1, max_line_width + resolved_horizontal_padding * 2)
+    )
     height_px = max(
         1,
         vertical_padding * 2
@@ -46,7 +59,7 @@ def rasterize_receipt(
     draw = ImageDraw.Draw(image)
     current_y = vertical_padding
     for line in lines:
-        draw.text((horizontal_padding, current_y), line, fill=0, font=font)
+        draw.text((resolved_horizontal_padding, current_y), line, fill=0, font=font)
         current_y += line_height + line_spacing
 
     bitmap = image.point(lambda value: 0 if value < 128 else 255, mode="1")
@@ -56,6 +69,8 @@ def rasterize_receipt(
         rendered_at=receipt.rendered_at,
         width_px=bitmap.width,
         height_px=bitmap.height,
+        max_line_width_px=max_line_width,
+        line_height_px=line_height,
     )
 
 

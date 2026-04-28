@@ -530,6 +530,69 @@ Phase 9 Stop 条件
 10. 全量测试通过
 11. 没有越界进入 USB / CUPS / 蓝牙打印 / retry / recovery / UI / LLM / 多打印机编排
 
+---
+
+### Phase 10：Printer Profiles, Calibration & Delivery Reliability
+创建或修改以下文件：
+
+```text
+docs/
+  printer-profiles.md
+  calibration.md
+  delivery-diagnostics.md
+
+src/alphaconsole/printing/
+  profiles.py
+  calibration.py
+  diagnostics.py
+
+tests/
+  test_printer_profiles.py
+  test_calibration_page.py
+  test_delivery_diagnostics.py
+  test_cli_printer_ops.py
+  test_end_to_end_calibrated_hardware_runtime.py
+```
+
+Phase 10 目标
+1. 引入 `PrinterProfile`
+2. 引入 calibration page 与 sample page
+3. 引入 delivery diagnostics 与 target health check
+4. 扩展 SQLite ledger，保存更完整的 delivery metadata
+5. 扩展 operator CLI：
+   - `targets inspect`
+   - `targets ping`
+   - `print calibration`
+   - `deliveries list`
+   - `deliveries latest`
+
+Phase 10 要求
+- 继续坚持 raster-first
+- 不实现 text-mode ESC/POS 优化
+- diagnostics 只用于观察，不用于自动修复
+- 不实现 retry / recovery / reprint
+- 不实现 USB / CUPS / 蓝牙打印
+
+Phase 10 Stop 条件
+1. README/docs 已同步到 printer profiles / calibration / diagnostics 阶段
+2. 新增：
+   - `docs/printer-profiles.md`
+   - `docs/calibration.md`
+   - `docs/delivery-diagnostics.md`
+3. `PrinterProfile` 已存在并可用
+4. calibration page 已存在并可打印
+5. `DeliveryDiagnostics` 已存在并贯通到 adapters / runtime / SQLite
+6. CLI 新增：
+   - `targets inspect`
+   - `targets ping`
+   - `print calibration`
+   - `deliveries list`
+   - `deliveries latest`
+7. SQLite 能记录更完整的 delivery metadata
+8. 至少 1 条 calibrated hardware runtime e2e 路径可用
+9. 全量测试通过
+10. 没有越界进入多打印机、恢复机制、UI、LLM、USB/CUPS/蓝牙
+
 ## 3. 推荐目录职责
 ### `domain/enums.py`
 定义最小枚举，不要放业务逻辑。

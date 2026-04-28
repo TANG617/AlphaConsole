@@ -16,6 +16,7 @@ from alphaconsole.printing import (
     PrinterTargetConfig,
     normalize_hardware_print_mode,
     normalize_printer_target_kind,
+    resolve_printer_profile,
 )
 from alphaconsole.rendering import RECEIPT_32, RECEIPT_42, RenderProfile
 
@@ -202,10 +203,19 @@ def _compile_printer_targets(
             )
 
         kind = _normalize_target_kind(configured_target.kind)
-        profile_name = (
-            resolve_render_profile(configured_target.profile).name
-            if configured_target.profile is not None
+        resolved_printer_profile = (
+            _resolve_printer_profile(configured_target.printer_profile)
+            if configured_target.printer_profile is not None
             else None
+        )
+        render_profile_name = (
+            resolve_render_profile(configured_target.render_profile).name
+            if configured_target.render_profile is not None
+            else (
+                resolved_printer_profile.recommended_render_profile_name
+                if resolved_printer_profile is not None
+                else None
+            )
         )
         mode = _normalize_target_mode(configured_target.mode)
         output_dir = _resolve_output_dir(configured_target.output_dir, base_dir=base_dir)
@@ -222,22 +232,74 @@ def _compile_printer_targets(
                     "printer target "
                     f"{configured_target.target_id!r} requires port for escpos_socket."
                 )
+        if kind in {"escpos_socket", "escpos_bytes_file"} and resolved_printer_profile is None:
+            raise RuntimeConfigError(
+                "printer target "
+                f"{configured_target.target_id!r} requires printer_profile for {kind}."
+            )
         if kind in {"file", "escpos_bytes_file"} and output_dir is None:
             raise RuntimeConfigError(
                 "printer target "
                 f"{configured_target.target_id!r} requires output_dir for {kind}."
             )
+        if (
+            resolved_printer_profile is not None
+            and configured_target.cut is True
+            and not resolved_printer_profile.supports_cut
+        ):
+            raise RuntimeConfigError(
+                "printer target "
+                f"{configured_target.target_id!r} enables cut for a profile that does not support cut."
+            )
 
         printer_targets_by_id[configured_target.target_id] = PrinterTargetConfig(
             target_id=configured_target.target_id,
             kind=kind,
-            profile_name=profile_name,
+            printer_profile_name=(
+                resolved_printer_profile.profile_id
+                if resolved_printer_profile is not None
+                else None
+            ),
+            render_profile_name=render_profile_name,
             hardware_options=HardwarePrintOptions(
                 mode=mode,
                 font_path=font_path,
-                font_size=configured_target.font_size,
-                line_spacing=configured_target.line_spacing,
-                cut=configured_target.cut,
+                font_size=(
+                    configured_target.font_size
+                    if configured_target.font_size is not None
+                    else (
+                        resolved_printer_profile.default_font_size
+                        if resolved_printer_profile is not None
+                        else 18
+                    )
+                ),
+                line_spacing=(
+                    configured_target.line_spacing
+                    if configured_target.line_spacing is not None
+                    else (
+                        resolved_printer_profile.default_line_spacing
+                        if resolved_printer_profile is not None
+                        else 4
+                    )
+                ),
+                cut=(
+                    configured_target.cut
+                    if configured_target.cut is not None
+                    else (
+                        resolved_printer_profile.default_cut
+                        if resolved_printer_profile is not None
+                        else True
+                    )
+                ),
+                feed_lines=(
+                    configured_target.feed_lines
+                    if configured_target.feed_lines is not None
+                    else (
+                        resolved_printer_profile.line_feed_after_print
+                        if resolved_printer_profile is not None
+                        else 4
+                    )
+                ),
             ),
             host=configured_target.host,
             port=configured_target.port,
@@ -259,5 +321,12 @@ def _normalize_target_mode(mode: str | None) -> str:
     normalized_mode = mode or "raster"
     try:
         return normalize_hardware_print_mode(normalized_mode)
+    except ValueError as exc:
+        raise RuntimeConfigError(str(exc)) from exc
+
+
+def _resolve_printer_profile(profile_id: str):
+    try:
+        return resolve_printer_profile(profile_id)
     except ValueError as exc:
         raise RuntimeConfigError(str(exc)) from exc

@@ -39,6 +39,13 @@
 - `escpos_socket`
 - `escpos_bytes_file`
 
+当前阶段建议补充的 metadata：
+- `target_id`
+- `printer_profile_name`
+- `render_profile_name`
+- `bytes_length`
+- `duration_ms`
+
 ## 4. 技术约束
 - 使用 stdlib `sqlite3`
 - 时间统一存 ISO 8601 文本
@@ -54,3 +61,4 @@
 - retry / recovery
 - reprint
 - 设备能力探测
+- ORM 风格的 diagnostics analytics

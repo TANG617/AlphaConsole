@@ -19,10 +19,15 @@ def build_escpos_payload(
     rasterized: RasterizedReceipt,
     *,
     cut: bool = True,
+    feed_lines: int = 4,
 ) -> EscPosPayload:
     return EscPosPayload(
         issue_id=rasterized.issue_id,
-        data=encode_raster_receipt_to_escpos(rasterized.image, cut=cut),
+        data=encode_raster_receipt_to_escpos(
+            rasterized.image,
+            cut=cut,
+            feed_lines=feed_lines,
+        ),
         encoded_at=datetime.now(),
     )
 
@@ -31,6 +36,7 @@ def encode_raster_receipt_to_escpos(
     image: Image.Image,
     *,
     cut: bool = True,
+    feed_lines: int = 4,
 ) -> bytes:
     bitmap = image.convert("1")
     width_px, height_px = bitmap.size
@@ -63,7 +69,8 @@ def encode_raster_receipt_to_escpos(
         )
     )
     payload.extend(data)
-    payload.extend(b"\n\n\n")
+    if feed_lines > 0:
+        payload.extend(b"\n" * feed_lines)
     if cut:
         payload.extend(b"\x1dV\x00")
     return bytes(payload)

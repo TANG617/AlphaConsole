@@ -32,6 +32,15 @@ def test_encode_raster_receipt_to_escpos_is_stable_for_same_input() -> None:
     assert first == second
 
 
+def test_encode_raster_receipt_to_escpos_differs_when_feed_lines_change() -> None:
+    image = Image.new("L", (16, 16), color=255)
+
+    feed_2 = encode_raster_receipt_to_escpos(image, feed_lines=2)
+    feed_6 = encode_raster_receipt_to_escpos(image, feed_lines=6)
+
+    assert feed_2 != feed_6
+
+
 def test_encode_raster_receipt_to_escpos_handles_blank_small_image() -> None:
     image = Image.new("L", (8, 8), color=255)
 

@@ -18,38 +18,44 @@ default_target = "receipt_printer"
 [[printer_targets]]
 target_id = "receipt_printer"
 kind = "escpos_socket"
+printer_profile = "generic_58mm"
+render_profile = "receipt32"
 host = "192.168.1.50"
 port = 9100
 timeout_seconds = 5.0
 mode = "raster"
-profile = "receipt42"
 font_path = "/path/to/font.ttf"
 font_size = 18
 line_spacing = 4
 cut = true
+feed_lines = 4
 
 [[printer_targets]]
 target_id = "bytes_debug"
 kind = "escpos_bytes_file"
 output_dir = "var/escpos"
+printer_profile = "generic_58mm"
+render_profile = "receipt32"
 mode = "raster"
-profile = "receipt42"
 font_path = ""
 font_size = 18
 line_spacing = 4
 cut = true
+feed_lines = 4
 ```
 
 ## 4. 字段说明
 ### 4.1 公共字段
 - `target_id`
 - `kind`
-- `profile`
+- `printer_profile`
+- `render_profile`
 - `mode`
 - `font_path`
 - `font_size`
 - `line_spacing`
 - `cut`
+- `feed_lines`
 
 ### 4.2 `escpos_socket`
 必填：
@@ -70,6 +76,7 @@ cut = true
 ## 5. 当前阶段规则
 - 当前阶段 `mode` 只允许 `raster`
 - blank `font_path` 归一化为 `None`
+- 未显式给出 `render_profile` 时，可回退到 `PrinterProfile` 推荐值
 - target config 属于 operator/runtime/printing boundary，不属于 domain
 - 当前阶段只对单台默认打印机负责，不做多打印机编排
 

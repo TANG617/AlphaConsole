@@ -6,7 +6,9 @@ from pathlib import Path
 import sys
 
 from alphaconsole.application import AutomationRuntimeService
+from alphaconsole.domain import TriggerMode
 from alphaconsole.config import RuntimeConfigError, resolve_render_profile
+from alphaconsole.printing import RenderedReceipt, build_calibration_receipt_text
 from alphaconsole.printing.test_page import build_test_receipt
 from alphaconsole.rendering import render_issue
 from alphaconsole.runtime import RuntimeBundle, build_runtime_from_config
@@ -43,6 +45,14 @@ def _build_parser() -> argparse.ArgumentParser:
     targets_list = targets_subparsers.add_parser("list")
     _add_config_argument(targets_list)
     targets_list.set_defaults(handler=_handle_targets_list)
+    targets_inspect = targets_subparsers.add_parser("inspect")
+    _add_config_argument(targets_inspect)
+    targets_inspect.add_argument("--target-id", required=True)
+    targets_inspect.set_defaults(handler=_handle_targets_inspect)
+    targets_ping = targets_subparsers.add_parser("ping")
+    _add_config_argument(targets_ping)
+    targets_ping.add_argument("--target-id", required=True)
+    targets_ping.set_defaults(handler=_handle_targets_ping)
 
     print_parser = subparsers.add_parser("print")
     print_subparsers = print_parser.add_subparsers(
@@ -54,6 +64,12 @@ def _build_parser() -> argparse.ArgumentParser:
     test_page.add_argument("--target-id")
     test_page.add_argument("--output-dir", type=Path)
     test_page.set_defaults(handler=_handle_print_test_page)
+    calibration_page = print_subparsers.add_parser("calibration")
+    _add_config_argument(calibration_page)
+    calibration_page.add_argument("--profile")
+    calibration_page.add_argument("--target-id")
+    calibration_page.add_argument("--output-dir", type=Path)
+    calibration_page.set_defaults(handler=_handle_print_calibration)
 
     preview_parser = subparsers.add_parser("preview")
     preview_subparsers = preview_parser.add_subparsers(
@@ -117,6 +133,18 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_state_argument(runs_latest)
     runs_latest.set_defaults(handler=_handle_runs_latest)
 
+    deliveries_parser = subparsers.add_parser("deliveries")
+    deliveries_subparsers = deliveries_parser.add_subparsers(
+        dest="deliveries_command", required=True
+    )
+    deliveries_list = deliveries_subparsers.add_parser("list")
+    _add_state_argument(deliveries_list)
+    deliveries_list.add_argument("--limit", type=int, default=20)
+    deliveries_list.set_defaults(handler=_handle_deliveries_list)
+    deliveries_latest = deliveries_subparsers.add_parser("latest")
+    _add_state_argument(deliveries_latest)
+    deliveries_latest.set_defaults(handler=_handle_deliveries_latest)
+
     return parser
 
 
@@ -176,11 +204,56 @@ def _handle_targets_list(args: argparse.Namespace) -> int:
     default_target_id = bundle.default_printer_target_id
     for target in bundle.printer_targets_by_id.values():
         marker = " (default)" if target.target_id == default_target_id else ""
-        profile_name = target.profile_name or bundle.default_profile.name
+        resolved_target = bundle.target_resolver.require(target.target_id)
         print(
-            f"- {target.target_id}: {target.kind} profile={profile_name}{marker}"
+            f"- {target.target_id}: {target.kind} printer_profile="
+            f"{resolved_target.inspection.printer_profile_name or '-'} "
+            f"render_profile={resolved_target.render_profile.name}{marker}"
         )
     return 0
+
+
+def _handle_targets_inspect(args: argparse.Namespace) -> int:
+    bundle = build_runtime_from_config(args.config)
+    resolved_target = bundle.target_resolver.require(args.target_id)
+    inspection = resolved_target.inspection
+    print(f"target_id: {inspection.target_id}")
+    print(f"kind: {inspection.kind}")
+    print(f"printer_profile: {inspection.printer_profile_name or '-'}")
+    print(f"render_profile: {inspection.render_profile_name}")
+    print(f"mode: {inspection.mode}")
+    print(f"cut: {inspection.cut}")
+    print(f"feed_lines: {inspection.feed_lines}")
+    print(f"font_size: {inspection.font_size}")
+    print(f"line_spacing: {inspection.line_spacing}")
+    print(f"timeout_seconds: {inspection.timeout_seconds or '-'}")
+    print(f"host: {inspection.host or '-'}")
+    print(f"port: {inspection.port or '-'}")
+    print(f"output_dir: {inspection.output_dir or '-'}")
+    return 0
+
+
+def _handle_targets_ping(args: argparse.Namespace) -> int:
+    bundle = build_runtime_from_config(args.config)
+    resolved_target = bundle.target_resolver.require(args.target_id)
+    if resolved_target.config.kind != "escpos_socket":
+        print(
+            f"Target {args.target_id!r} does not support ping: kind={resolved_target.config.kind}.",
+            file=sys.stderr,
+        )
+        return 1
+
+    adapter = bundle.adapter_factory.create_for_target(resolved_target)
+    result = adapter.ping()
+    if result.ok:
+        print(f"OK target={result.target_id} latency_ms={result.latency_ms}")
+        return 0
+
+    print(
+        f"FAILED target={result.target_id} latency_ms={result.latency_ms} error={result.error_text}",
+        file=sys.stderr,
+    )
+    return 1
 
 
 def _handle_print_test_page(args: argparse.Namespace) -> int:
@@ -193,6 +266,35 @@ def _handle_print_test_page(args: argparse.Namespace) -> int:
     )
     profile = _resolve_profile(bundle, args.profile, target=target)
     adapter.deliver(build_test_receipt(profile))
+    return 0
+
+
+def _handle_print_calibration(args: argparse.Namespace) -> int:
+    bundle = build_runtime_from_config(args.config)
+    adapter, target = _resolve_delivery(
+        bundle,
+        args.target_id,
+        override_kind=None,
+        output_dir=args.output_dir,
+    )
+    if target is None or target.printer_profile is None:
+        raise RuntimeConfigError(
+            "Calibration requires a target with a configured printer_profile."
+        )
+    profile = _resolve_profile(bundle, args.profile, target=target)
+    receipt = RenderedReceipt(
+        issue_id="calibration-page",
+        publication_slot_id=None,
+        trigger_mode=TriggerMode.IMMEDIATE,
+        profile_name=profile.name,
+        text=build_calibration_receipt_text(
+            target_id=target.config.target_id,
+            printer_profile=target.printer_profile,
+            render_profile_name=profile.name,
+        ),
+        rendered_at=datetime.now(),
+    )
+    adapter.deliver(receipt)
     return 0
 
 
@@ -324,10 +426,33 @@ def _handle_runs_latest(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_deliveries_list(args: argparse.Namespace) -> int:
+    store = _open_state_store(args.state)
+    attempts = store.list_delivery_attempts(limit=args.limit)
+    if not attempts:
+        print("No delivery attempts found.")
+        return 0
+
+    for attempt in attempts:
+        print(_format_delivery_attempt(attempt))
+    return 0
+
+
+def _handle_deliveries_latest(args: argparse.Namespace) -> int:
+    store = _open_state_store(args.state)
+    latest = store.get_latest_delivery_attempt()
+    if latest is None:
+        print("No delivery attempts found.")
+        return 0
+
+    print(_format_delivery_attempt(latest))
+    return 0
+
+
 def _resolve_profile(bundle: RuntimeBundle, override: str | None, *, target=None):
     if override is None:
-        if target is not None and target.profile_name is not None:
-            return resolve_render_profile(target.profile_name)
+        if target is not None:
+            return target.render_profile
         return bundle.default_profile
     return resolve_render_profile(override)
 
@@ -340,7 +465,7 @@ def _resolve_delivery(
     output_dir: Path | None,
 ):
     if target_id is not None:
-        target = _require_target(bundle, target_id)
+        target = bundle.target_resolver.require(target_id)
         return bundle.adapter_factory.create_for_target(
             target,
             output_dir=output_dir,
@@ -353,7 +478,7 @@ def _resolve_delivery(
         ), None
 
     if bundle.default_printer_target_id is not None:
-        target = _require_target(bundle, bundle.default_printer_target_id)
+        target = bundle.target_resolver.resolve(bundle.default_printer_target_id)
         return bundle.adapter_factory.create_for_target(
             target,
             output_dir=output_dir,
@@ -392,13 +517,6 @@ def _require_app(bundle: RuntimeBundle, app_id: str):
         return bundle.apps_by_id[app_id]
     except KeyError as exc:
         raise RuntimeConfigError(f"Unknown app_id: {app_id!r}.") from exc
-
-
-def _require_target(bundle: RuntimeBundle, target_id: str):
-    try:
-        return bundle.printer_targets_by_id[target_id]
-    except KeyError as exc:
-        raise RuntimeConfigError(f"Unknown target_id: {target_id!r}.") from exc
 
 
 def _parse_datetime(value: str) -> datetime:
@@ -454,10 +572,28 @@ def _format_run(run) -> str:
     occurrence_at = run.occurrence_at.isoformat() if run.occurrence_at else "-"
     delivered_at = run.delivered_at.isoformat() if run.delivered_at else "-"
     slot_id = run.slot_id or "-"
+    target_id = getattr(run, "target_id", None) or "-"
+    printer_profile_name = getattr(run, "printer_profile_name", None) or "-"
     return (
         f"{run.issue_id} slot={slot_id} occurrence_at={occurrence_at} "
         f"status={run.status} seq={run.sequence_of_day} "
-        f"adapter={run.adapter_name} delivered_at={delivered_at}"
+        f"adapter={run.adapter_name} target={target_id} "
+        f"printer_profile={printer_profile_name} delivered_at={delivered_at}"
+    )
+
+
+def _format_delivery_attempt(attempt) -> str:
+    target_id = attempt.target_id or "-"
+    printer_profile_name = attempt.printer_profile_name or "-"
+    render_profile_name = attempt.render_profile_name or "-"
+    bytes_length = attempt.bytes_length if attempt.bytes_length is not None else "-"
+    duration_ms = attempt.duration_ms if attempt.duration_ms is not None else "-"
+    error_text = attempt.error_text or "-"
+    return (
+        f"{attempt.attempt_id} issue={attempt.issue_id} adapter={attempt.adapter_name} "
+        f"target={target_id} printer_profile={printer_profile_name} "
+        f"render_profile={render_profile_name} bytes={bytes_length} "
+        f"duration_ms={duration_ms} succeeded={attempt.succeeded} error={error_text}"
     )
 
 

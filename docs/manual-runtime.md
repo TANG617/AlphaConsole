@@ -54,14 +54,43 @@ uv run python -m alphaconsole.cli publish immediate --config examples/basic.toml
 uv run python -m alphaconsole.cli targets list --config examples/basic.toml
 ```
 
-### 3.6 print test-page
+### 3.6 targets inspect
+查看某个 target 的配置摘要：
+
+```bash
+uv run python -m alphaconsole.cli targets inspect --config examples/basic.toml --target-id bytes_debug
+```
+
+### 3.7 targets ping
+对 socket target 做最小 TCP ping：
+
+```bash
+uv run python -m alphaconsole.cli targets ping --config examples/printer-network.toml --target-id receipt_printer
+```
+
+### 3.8 print test-page
 向选定 target 发送一张最小测试页：
 
 ```bash
 uv run python -m alphaconsole.cli print test-page --config examples/basic.toml --target-id bytes_debug
 ```
 
-### 3.7 runtime once / runtime loop with target
+### 3.9 print calibration
+向选定 target 发送 calibration page：
+
+```bash
+uv run python -m alphaconsole.cli print calibration --config examples/printer-network.toml --target-id receipt_printer
+```
+
+### 3.10 deliveries list / latest
+查看最近的 delivery attempts：
+
+```bash
+uv run python -m alphaconsole.cli deliveries list --state var/state.db
+uv run python -m alphaconsole.cli deliveries latest --state var/state.db
+```
+
+### 3.11 runtime once / runtime loop with target
 自动出刊命令仍然保留，并可通过 `--target-id` 选择打印目标：
 
 ```bash

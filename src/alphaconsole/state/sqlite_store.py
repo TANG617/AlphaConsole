@@ -5,6 +5,8 @@ from pathlib import Path
 import sqlite3
 from uuid import uuid4
 
+from alphaconsole.printing import DeliveryDiagnostics
+
 from .models import DeliveryAttemptRecord, PublicationRunRecord
 
 
@@ -35,6 +37,8 @@ class SQLiteStateStore:
                     sequence_of_day INTEGER NOT NULL,
                     profile_name TEXT NOT NULL,
                     adapter_name TEXT NOT NULL,
+                    target_id TEXT,
+                    printer_profile_name TEXT,
                     status TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     delivered_at TEXT,
@@ -48,10 +52,22 @@ class SQLiteStateStore:
                     attempted_at TEXT NOT NULL,
                     succeeded INTEGER NOT NULL,
                     error_text TEXT,
+                    target_id TEXT,
+                    printer_profile_name TEXT,
+                    render_profile_name TEXT,
+                    bytes_length INTEGER,
+                    duration_ms INTEGER,
                     FOREIGN KEY(issue_id) REFERENCES publication_runs(issue_id)
                 );
                 """
             )
+            _ensure_column(conn, "publication_runs", "target_id", "TEXT")
+            _ensure_column(conn, "publication_runs", "printer_profile_name", "TEXT")
+            _ensure_column(conn, "delivery_attempts", "target_id", "TEXT")
+            _ensure_column(conn, "delivery_attempts", "printer_profile_name", "TEXT")
+            _ensure_column(conn, "delivery_attempts", "render_profile_name", "TEXT")
+            _ensure_column(conn, "delivery_attempts", "bytes_length", "INTEGER")
+            _ensure_column(conn, "delivery_attempts", "duration_ms", "INTEGER")
             conn.commit()
 
     def get_last_tick_at(self) -> datetime | None:
@@ -131,6 +147,8 @@ class SQLiteStateStore:
         sequence_of_day: int,
         profile_name: str,
         adapter_name: str,
+        target_id: str | None = None,
+        printer_profile_name: str | None = None,
         status: str,
         created_at: datetime,
         delivered_at: datetime | None = None,
@@ -143,6 +161,8 @@ class SQLiteStateStore:
             sequence_of_day=sequence_of_day,
             profile_name=profile_name,
             adapter_name=adapter_name,
+            target_id=target_id,
+            printer_profile_name=printer_profile_name,
             status=status,
             created_at=created_at,
             delivered_at=delivered_at,
@@ -158,10 +178,12 @@ class SQLiteStateStore:
                     sequence_of_day,
                     profile_name,
                     adapter_name,
+                    target_id,
+                    printer_profile_name,
                     status,
                     created_at,
                     delivered_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.issue_id,
@@ -171,6 +193,8 @@ class SQLiteStateStore:
                     record.sequence_of_day,
                     record.profile_name,
                     record.adapter_name,
+                    record.target_id,
+                    record.printer_profile_name,
                     record.status,
                     _serialize_datetime(record.created_at),
                     _serialize_optional_datetime(record.delivered_at),
@@ -208,18 +232,21 @@ class SQLiteStateStore:
         self,
         *,
         issue_id: str,
-        adapter_name: str,
         attempted_at: datetime,
-        succeeded: bool,
-        error_text: str | None = None,
+        diagnostics: DeliveryDiagnostics,
     ) -> DeliveryAttemptRecord:
         record = DeliveryAttemptRecord(
             attempt_id=uuid4().hex,
             issue_id=issue_id,
-            adapter_name=adapter_name,
+            adapter_name=diagnostics.adapter_name,
             attempted_at=attempted_at,
-            succeeded=succeeded,
-            error_text=error_text,
+            succeeded=diagnostics.succeeded,
+            error_text=diagnostics.error_text,
+            target_id=diagnostics.target_id,
+            printer_profile_name=diagnostics.printer_profile_name,
+            render_profile_name=diagnostics.render_profile_name,
+            bytes_length=diagnostics.bytes_length,
+            duration_ms=diagnostics.duration_ms,
         )
         with self._connect() as conn:
             conn.execute(
@@ -230,8 +257,13 @@ class SQLiteStateStore:
                     adapter_name,
                     attempted_at,
                     succeeded,
-                    error_text
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    error_text,
+                    target_id,
+                    printer_profile_name,
+                    render_profile_name,
+                    bytes_length,
+                    duration_ms
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.attempt_id,
@@ -240,10 +272,45 @@ class SQLiteStateStore:
                     _serialize_datetime(record.attempted_at),
                     int(record.succeeded),
                     record.error_text,
+                    record.target_id,
+                    record.printer_profile_name,
+                    record.render_profile_name,
+                    record.bytes_length,
+                    record.duration_ms,
                 ),
             )
             conn.commit()
         return record
+
+    def list_delivery_attempts(self, limit: int = 20) -> list[DeliveryAttemptRecord]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    attempt_id,
+                    issue_id,
+                    adapter_name,
+                    attempted_at,
+                    succeeded,
+                    error_text,
+                    target_id,
+                    printer_profile_name,
+                    render_profile_name,
+                    bytes_length,
+                    duration_ms
+                FROM delivery_attempts
+                ORDER BY attempted_at DESC, attempt_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [_delivery_attempt_record_from_row(row) for row in rows]
+
+    def get_latest_delivery_attempt(self) -> DeliveryAttemptRecord | None:
+        attempts = self.list_delivery_attempts(limit=1)
+        if not attempts:
+            return None
+        return attempts[0]
 
     def list_publication_runs(self, limit: int = 50) -> list[PublicationRunRecord]:
         with self._connect() as conn:
@@ -257,6 +324,8 @@ class SQLiteStateStore:
                     sequence_of_day,
                     profile_name,
                     adapter_name,
+                    target_id,
+                    printer_profile_name,
                     status,
                     created_at,
                     delivered_at
@@ -290,9 +359,44 @@ def _publication_run_record_from_row(row: sqlite3.Row) -> PublicationRunRecord:
         sequence_of_day=int(row["sequence_of_day"]),
         profile_name=row["profile_name"],
         adapter_name=row["adapter_name"],
+        target_id=row["target_id"],
+        printer_profile_name=row["printer_profile_name"],
         status=row["status"],
         created_at=_parse_datetime(row["created_at"]),
         delivered_at=_parse_optional_datetime(row["delivered_at"]),
+    )
+
+
+def _delivery_attempt_record_from_row(row: sqlite3.Row) -> DeliveryAttemptRecord:
+    return DeliveryAttemptRecord(
+        attempt_id=row["attempt_id"],
+        issue_id=row["issue_id"],
+        adapter_name=row["adapter_name"],
+        attempted_at=_parse_datetime(row["attempted_at"]),
+        succeeded=bool(row["succeeded"]),
+        error_text=row["error_text"],
+        target_id=row["target_id"],
+        printer_profile_name=row["printer_profile_name"],
+        render_profile_name=row["render_profile_name"],
+        bytes_length=row["bytes_length"],
+        duration_ms=row["duration_ms"],
+    )
+
+
+def _ensure_column(
+    conn: sqlite3.Connection,
+    table_name: str,
+    column_name: str,
+    column_sql: str,
+) -> None:
+    existing_columns = {
+        row["name"]
+        for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    }
+    if column_name in existing_columns:
+        return
+    conn.execute(
+        f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_sql}"
     )
 
 

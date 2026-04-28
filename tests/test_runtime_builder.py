@@ -11,6 +11,7 @@ def test_build_runtime_from_config_returns_runtime_bundle() -> None:
     config_path = Path("examples/basic.toml")
 
     bundle = build_runtime_from_config(config_path)
+    resolved_default_target = bundle.target_resolver.require("stdout_default")
 
     assert isinstance(bundle, RuntimeBundle)
     assert isinstance(bundle.publication_service, PublicationService)
@@ -24,6 +25,8 @@ def test_build_runtime_from_config_returns_runtime_bundle() -> None:
     assert bundle.runtime_catchup_seconds == 60
     assert bundle.runtime_poll_interval_seconds == 30.0
     assert bundle.file_output_dir == Path("examples/var/out")
+    assert resolved_default_target.inspection.printer_profile_name == "generic_58mm"
+    assert resolved_default_target.render_profile.name == "receipt_32"
 
 
 def test_build_runtime_from_config_resolves_default_file_output_dir(

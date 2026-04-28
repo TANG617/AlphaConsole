@@ -7,6 +7,7 @@ from alphaconsole.rendering import RECEIPT_42, RenderProfile, render_issue
 
 from .adapter import PrinterAdapter
 from .artifact import RenderedReceipt
+from .diagnostics import PrintResult
 
 
 class PrintService:
@@ -30,6 +31,14 @@ class PrintService:
         adapter: PrinterAdapter,
         profile: RenderProfile = RECEIPT_42,
     ) -> RenderedReceipt:
+        return self.print_issue_with_diagnostics(issue, adapter, profile).receipt
+
+    def print_issue_with_diagnostics(
+        self,
+        issue: Issue,
+        adapter: PrinterAdapter,
+        profile: RenderProfile = RECEIPT_42,
+    ) -> PrintResult:
         receipt = self.render_issue_to_receipt(issue, profile)
-        adapter.deliver(receipt)
-        return receipt
+        diagnostics = adapter.deliver(receipt)
+        return PrintResult(receipt=receipt, diagnostics=diagnostics)
