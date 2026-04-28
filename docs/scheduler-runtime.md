@@ -1,7 +1,7 @@
 # AlphaConsole Scheduler Runtime（当前阶段）
 ## 1. 目标
 当前阶段引入的是一个本地、同步、轮询式 scheduler runtime。  
-它的目标是在不接真实打印机的前提下，让系统能够自动 dry-run 出刊。
+它的目标是让系统能够自动出刊，默认可 dry-run，也可通过 delivery 边界接入最小 TCP ESC/POS adapter。
 
 ## 2. 当前只支持每日固定时点
 当前自动化 runtime 对 `PublicationSlot` 的解释固定为：

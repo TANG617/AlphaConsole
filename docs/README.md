@@ -65,20 +65,21 @@
 - run ledger
 - automated dry-run publication
 - width-aware rendering
-- print pipeline boundary（dry-run）
+- print pipeline boundary
+- TCP ESC/POS adapter（experimental）
 - publication runtime（dry-run end-to-end）
 - 最小单元测试
 
 ## 当前阶段说明
 当前阶段已进入 **local automation runtime（SQLite + scheduler + run ledger, dry-run）**。
 这一步的目标是在现有 `IssueAssembler`、width-aware rendering、dry-run print boundary、publication runtime 与 manual runtime 之上，建立一个本地、自动化、可恢复重启的 dry-run runtime。
-当前 milestone 仍然不是 printer hardware milestone，也不是 UI milestone，更不是 cloud/backend milestone。
+当前 milestone 仍然不是完整 printer hardware milestone，也不是 UI milestone，更不是 cloud/backend milestone。
+当前只补入最小 TCP ESC/POS adapter，用于向网口小票机发送文本型 raw ESC/POS bytes。
 
 ## 明确不做
 当前阶段明确不做：
-- 真实 printer adapter
-- ESC/POS
-- 真实打印机硬件接入
+- USB / Bluetooth printer adapter
+- production-grade ESC/POS 队列、重试和恢复
 - TUI / Web UI
 - LLM integration
 - WeatherApp / NewsApp 的真实内容采集

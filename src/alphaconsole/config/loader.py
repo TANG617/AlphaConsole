@@ -8,6 +8,7 @@ import tomllib
 from .models import (
     ConfiguredPublicationSlot,
     ConfiguredSceneApp,
+    DeliveryEscposTcpConfig,
     DeliveryConfig,
     DeliveryFileConfig,
     RenderingConfig,
@@ -30,6 +31,7 @@ def load_runtime_config(path: Path) -> RuntimeConfig:
     runtime_data = _optional_table(data, "runtime")
     delivery_data = _optional_table(data, "delivery")
     delivery_file_data = _optional_table(delivery_data, "file")
+    delivery_escpos_tcp_data = _optional_table(delivery_data, "escpos_tcp")
     publication_slots = _optional_array_of_tables(data, "publication_slots")
     scene_apps = _optional_array_of_tables(data, "scene_apps")
 
@@ -73,6 +75,43 @@ def load_runtime_config(path: Path) -> RuntimeConfig:
                     context="delivery.output_dir",
                     default=None,
                 ),
+            ),
+        ),
+        escpos_tcp=DeliveryEscposTcpConfig(
+            host=_optional_string(
+                delivery_escpos_tcp_data,
+                "host",
+                context="delivery.escpos_tcp.host",
+            ),
+            port=_defaulted_port(
+                delivery_escpos_tcp_data,
+                "port",
+                context="delivery.escpos_tcp.port",
+                default=9100,
+            ),
+            timeout_seconds=_defaulted_positive_float(
+                delivery_escpos_tcp_data,
+                "timeout_seconds",
+                context="delivery.escpos_tcp.timeout_seconds",
+                default=5.0,
+            ),
+            encoding=_defaulted_non_blank_string(
+                delivery_escpos_tcp_data,
+                "encoding",
+                context="delivery.escpos_tcp.encoding",
+                default="gb18030",
+            ),
+            cut=_defaulted_bool(
+                delivery_escpos_tcp_data,
+                "cut",
+                context="delivery.escpos_tcp.cut",
+                default=True,
+            ),
+            feed_lines=_defaulted_non_negative_int(
+                delivery_escpos_tcp_data,
+                "feed_lines",
+                context="delivery.escpos_tcp.feed_lines",
+                default=3,
             ),
         ),
     )
@@ -218,6 +257,24 @@ def _defaulted_non_negative_int(
     return value
 
 
+def _defaulted_port(
+    data: Mapping[str, object],
+    key: str,
+    *,
+    context: str,
+    default: int,
+) -> int:
+    value = _defaulted_non_negative_int(
+        data,
+        key,
+        context=context,
+        default=default,
+    )
+    if value <= 0 or value > 65535:
+        raise RuntimeConfigError(f"{context} must be a TCP port between 1 and 65535.")
+    return value
+
+
 def _defaulted_positive_float(
     data: Mapping[str, object],
     key: str,
@@ -235,6 +292,22 @@ def _defaulted_positive_float(
     if numeric_value <= 0:
         raise RuntimeConfigError(f"{context} must be a positive number.")
     return numeric_value
+
+
+def _defaulted_bool(
+    data: Mapping[str, object],
+    key: str,
+    *,
+    context: str,
+    default: bool,
+) -> bool:
+    if key not in data:
+        return default
+
+    value = data[key]
+    if not isinstance(value, bool):
+        raise RuntimeConfigError(f"{context} must be a boolean.")
+    return value
 
 
 def _optional_string(

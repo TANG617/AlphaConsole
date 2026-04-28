@@ -223,6 +223,120 @@ is_enabled = true
         compile_runtime_config(config)
 
 
+def test_compile_runtime_config_supports_escpos_tcp_adapter(tmp_path: Path) -> None:
+    config_path = tmp_path / "runtime.toml"
+    config_path.write_text(
+        """
+[delivery]
+default_adapter = "escpos-tcp"
+
+[delivery.escpos_tcp]
+host = "192.0.2.10"
+port = 9100
+timeout_seconds = 3
+encoding = "gb18030"
+cut = false
+feed_lines = 1
+
+[[publication_slots]]
+slot_id = "noon"
+name = "Noon"
+publish_time = "12:00"
+is_enabled = true
+
+[[scene_apps]]
+app_id = "lunch"
+name = "Lunch"
+target_publication_slot_id = "noon"
+scene_note = "Eat vegetables"
+is_enabled = true
+""".strip(),
+        encoding="utf-8",
+    )
+
+    compiled = compile_runtime_config(load_runtime_config(config_path))
+
+    assert compiled.default_adapter_kind == "escpos_tcp"
+    assert compiled.escpos_tcp_host == "192.0.2.10"
+    assert compiled.escpos_tcp_port == 9100
+    assert compiled.escpos_tcp_timeout_seconds == 3.0
+    assert compiled.escpos_tcp_encoding == "gb18030"
+    assert compiled.escpos_tcp_cut is False
+    assert compiled.escpos_tcp_feed_lines == 1
+
+
+def test_compile_runtime_config_requires_host_for_default_escpos_tcp(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "runtime.toml"
+    config_path.write_text(
+        """
+[delivery]
+default_adapter = "escpos_tcp"
+
+[[publication_slots]]
+slot_id = "noon"
+name = "Noon"
+publish_time = "12:00"
+is_enabled = true
+
+[[scene_apps]]
+app_id = "lunch"
+name = "Lunch"
+target_publication_slot_id = "noon"
+scene_note = "Eat vegetables"
+is_enabled = true
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_runtime_config(config_path)
+
+    with pytest.raises(
+        RuntimeConfigError,
+        match=r"delivery\.escpos_tcp\.host is required",
+    ):
+        compile_runtime_config(config)
+
+
+def test_compile_runtime_config_rejects_unsupported_escpos_tcp_encoding(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "runtime.toml"
+    config_path.write_text(
+        """
+[delivery]
+default_adapter = "escpos-tcp"
+
+[delivery.escpos_tcp]
+host = "192.0.2.10"
+encoding = "utf-8"
+
+[[publication_slots]]
+slot_id = "noon"
+name = "Noon"
+publish_time = "12:00"
+is_enabled = true
+
+[[scene_apps]]
+app_id = "lunch"
+name = "Lunch"
+target_publication_slot_id = "noon"
+scene_note = "Eat vegetables"
+is_enabled = true
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_runtime_config(config_path)
+
+    with pytest.raises(
+        RuntimeConfigError,
+        match=r"only supports gb18030",
+    ):
+        compile_runtime_config(config)
+
+
 def test_load_runtime_config_normalizes_blank_scene_note_when_checklist_exists(
     tmp_path: Path,
 ) -> None:

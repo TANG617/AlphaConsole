@@ -1,0 +1,40 @@
+[rendering]
+default_profile = "receipt42"
+
+[runtime]
+catchup_seconds = 60
+poll_interval_seconds = 30
+
+[delivery]
+default_adapter = "escpos-tcp"
+
+[delivery.escpos_tcp]
+host = "192.0.2.10"
+port = 9100
+timeout_seconds = 5
+encoding = "gb18030"
+cut = true
+feed_lines = 3
+
+[[publication_slots]]
+slot_id = "noon"
+name = "Noon"
+publish_time = "12:00"
+is_enabled = true
+recurrence_rule = "daily"
+
+[[scene_apps]]
+app_id = "lunch"
+name = "Lunch"
+target_publication_slot_id = "noon"
+scene_note = "多吃蔬菜，不要喝可乐"
+checklist_items = ["吃得健康", "力量训练", "21:00 结束工作"]
+is_enabled = true
+
+[[scene_apps]]
+app_id = "afternoon_reset"
+name = "Afternoon Reset"
+target_publication_slot_id = "noon"
+scene_note = ""
+checklist_items = ["喝水", "站起来活动 5 分钟"]
+is_enabled = true
