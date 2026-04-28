@@ -9,7 +9,7 @@ poll_interval_seconds = 30
 default_adapter = "escpos-tcp"
 
 [delivery.escpos_tcp]
-host = "10.0.4.192"
+host = "192.0.2.10"
 port = 9100
 timeout_seconds = 5
 encoding = "gb18030"

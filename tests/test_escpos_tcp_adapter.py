@@ -4,6 +4,8 @@ from datetime import datetime
 import socket
 import threading
 
+import pytest
+
 from alphaconsole.domain import TriggerMode
 from alphaconsole.printing import EscposTcpPrinterAdapter, RenderedReceipt
 from alphaconsole.printing.escpos_tcp_adapter import (
@@ -36,6 +38,17 @@ def test_escpos_tcp_adapter_builds_gb18030_payload() -> None:
     assert payload.startswith(ESC_INIT + FS_SELECT_CHINESE_MODE)
     assert "午餐".encode("gb18030") in payload
     assert payload.endswith(b"\n\n" + GS_PARTIAL_CUT)
+
+
+def test_escpos_tcp_adapter_rejects_unsupported_encoding() -> None:
+    with pytest.raises(ValueError, match="only supports gb18030"):
+        EscposTcpPrinterAdapter(host="127.0.0.1", encoding="utf-8")
+
+
+def test_escpos_tcp_adapter_accepts_alias_and_normalizes_encoding() -> None:
+    adapter = EscposTcpPrinterAdapter(host="127.0.0.1", encoding="gb-18030")
+
+    assert adapter.encoding == "gb18030"
 
 
 def test_escpos_tcp_adapter_can_disable_cut() -> None:

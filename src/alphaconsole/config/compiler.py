@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import codecs
 from datetime import datetime
 from pathlib import Path
 
@@ -31,6 +30,7 @@ _ADAPTER_KIND_ALIASES = {
     "escpos-tcp": "escpos_tcp",
     "escpos_tcp": "escpos_tcp",
 }
+_ESCPOS_TCP_ENCODINGS = {"gb18030", "gb-18030"}
 
 
 @dataclass(slots=True, frozen=True)
@@ -89,7 +89,9 @@ def compile_runtime_config(
             "delivery.escpos_tcp.host is required when default_adapter is "
             "'escpos_tcp'."
         )
-    _validate_encoding(config.delivery.escpos_tcp.encoding)
+    escpos_tcp_encoding = _normalize_escpos_tcp_encoding(
+        config.delivery.escpos_tcp.encoding
+    )
 
     slots_by_id: dict[str, PublicationSlot] = {}
     for configured_slot in config.publication_slots:
@@ -155,7 +157,7 @@ def compile_runtime_config(
         escpos_tcp_host=config.delivery.escpos_tcp.host,
         escpos_tcp_port=config.delivery.escpos_tcp.port,
         escpos_tcp_timeout_seconds=config.delivery.escpos_tcp.timeout_seconds,
-        escpos_tcp_encoding=config.delivery.escpos_tcp.encoding,
+        escpos_tcp_encoding=escpos_tcp_encoding,
         escpos_tcp_cut=config.delivery.escpos_tcp.cut,
         escpos_tcp_feed_lines=config.delivery.escpos_tcp.feed_lines,
         runtime_catchup_seconds=config.runtime.catchup_seconds,
@@ -185,10 +187,12 @@ def _resolve_output_dir(value: str | None, *, base_dir: Path) -> Path | None:
     return path
 
 
-def _validate_encoding(value: str) -> None:
-    try:
-        codecs.lookup(value)
-    except LookupError as exc:
+def _normalize_escpos_tcp_encoding(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized not in _ESCPOS_TCP_ENCODINGS:
         raise RuntimeConfigError(
-            f"Unsupported delivery.escpos_tcp.encoding: {value!r}."
-        ) from exc
+            "delivery.escpos_tcp.encoding only supports gb18030 for the current "
+            "experimental escpos_tcp adapter; this is the verified "
+            "Chinese/Kanji-mode path."
+        )
+    return "gb18030"

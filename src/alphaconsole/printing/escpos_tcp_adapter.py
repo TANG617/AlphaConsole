@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import codecs
 import socket
 
 from .adapter import PrinterAdapter
@@ -11,6 +10,7 @@ from .artifact import RenderedReceipt
 ESC_INIT = b"\x1b@"
 FS_SELECT_CHINESE_MODE = b"\x1c&"
 GS_PARTIAL_CUT = b"\x1dVB\x00"
+_SUPPORTED_ENCODINGS = {"gb18030", "gb-18030"}
 
 
 @dataclass(slots=True)
@@ -32,7 +32,7 @@ class EscposTcpPrinterAdapter(PrinterAdapter):
             raise ValueError("ESC/POS TCP adapter timeout must be positive.")
         if self.feed_lines < 0:
             raise ValueError("ESC/POS TCP adapter feed_lines must be non-negative.")
-        codecs.lookup(self.encoding)
+        self.encoding = _normalize_escpos_tcp_encoding(self.encoding)
 
     def deliver(self, receipt: RenderedReceipt) -> None:
         payload = self._build_payload(receipt.text)
@@ -52,3 +52,13 @@ class EscposTcpPrinterAdapter(PrinterAdapter):
         cut_bytes = GS_PARTIAL_CUT if self.cut else b""
 
         return ESC_INIT + FS_SELECT_CHINESE_MODE + text_bytes + feed_bytes + cut_bytes
+
+
+def _normalize_escpos_tcp_encoding(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized not in _SUPPORTED_ENCODINGS:
+        raise ValueError(
+            "EscposTcpPrinterAdapter only supports gb18030 because it uses the "
+            "Chinese/Kanji mode ESC/POS path."
+        )
+    return "gb18030"
